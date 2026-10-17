@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline'">
+  <title>Pati</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <header>
+    <img id="avatar" alt="">
+    <div>
+      <h1 data-i18n="settings.title"></h1>
+      <p class="muted" id="status" data-i18n="settings.autosave"></p>
+    </div>
+  </header>
+
+  <section>
+    <h2 data-i18n="settings.general"></h2>
+    <div class="grid">
+      <label><span data-i18n="settings.language"></span> <select id="language"></select></label>
+      <label><span data-i18n="settings.look"></span> <select id="look"></select></label>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.character"></h2>
+    <div class="row">
+      <select id="character"></select>
+      <button id="open-folder" type="button" data-i18n="settings.openFolder"></button>
+      <button id="reload" type="button" data-i18n="settings.reload"></button>
+    </div>
+    <p class="muted" data-i18n="settings.characterHelp"></p>
+    <ul id="problems" class="problems"></ul>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.ai"></h2>
+    <label class="check"><input type="checkbox" id="ai-enabled"> <span data-i18n="settings.aiEnabled"></span></label>
+    <h3 data-i18n="settings.aiServers"></h3>
+    <p class="muted" data-i18n="settings.aiServersHelp"></p>
+    <div id="ai-servers"></div>
+    <div class="row">
+      <button id="ai-detect" type="button" data-i18n="settings.aiDetect"></button>
+      <button id="ai-add" type="button" data-i18n="settings.aiAdd"></button>
+    </div>
+    <p class="muted" id="ai-status" role="status"></p>
+    <p class="muted" data-i18n="settings.aiHelp"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.memory"></h2>
+    <label class="check"><input type="checkbox" id="ai-memory"> <span data-i18n="settings.memoryEnabled"></span></label>
+    <ul id="memory-list" class="memory"></ul>
+    <p class="muted" id="memory-empty" data-i18n="settings.memoryEmpty"></p>
+    <button id="memory-clear" type="button" data-i18n="settings.memoryClear"></button>
+    <h3 data-i18n="settings.brain"></h3>
+    <p class="muted" data-i18n="settings.brainHelp"></p>
+    <p><code id="brain-dir"></code></p>
+    <div class="row">
+      <button id="brain-open" type="button" data-i18n="settings.brainOpen"></button>
+      <button id="brain-choose" type="button" data-i18n="settings.brainChoose"></button>
+    </div>
+    <p class="muted" id="brain-status" role="status"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.tools"></h2>
+    <label class="check"><input type="checkbox" id="tool-clipboard"> <span data-i18n="settings.toolClipboard"></span></label>
+    <label class="check"><input type="checkbox" id="tool-web"> <span data-i18n="settings.toolWeb"></span></label>
+    <label class="check"><input type="checkbox" id="tool-actions"> <span data-i18n="settings.toolActions"></span></label>
+    <div class="row"><button id="actions-reset" type="button" data-i18n="settings.actionsReset"></button></div>
+    <p class="muted" data-i18n="settings.toolsHelp"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.speech"></h2>
+    <label class="check"><input type="checkbox" id="speech-enabled"> <span data-i18n="settings.speechEnabled"></span></label>
+    <div class="grid">
+      <label><span data-i18n="settings.voice"></span> <select id="voice"></select></label>
+      <label><span data-i18n="settings.rate"></span> <input type="range" id="rate" min="0.5" max="2" step="0.1"></label>
+      <label><span data-i18n="settings.pitch"></span> <input type="range" id="pitch" min="0" max="2" step="0.1"></label>
+    </div>
+    <button id="try-voice" type="button" data-i18n="settings.tryVoice"></button>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.behavior"></h2>
+    <label class="check"><input type="checkbox" id="wander"> <span data-i18n="settings.wander"></span></label>
+    <label class="check"><input type="checkbox" id="tips-enabled"> <span data-i18n="settings.tipsEnabled"></span></label>
+    <label class="check"><input type="checkbox" id="pro-enabled"> <span data-i18n="settings.proactive"></span></label>
+    <div class="indent">
+      <label class="check"><input type="checkbox" id="pro-briefing"> <span data-i18n="settings.proBriefing"></span></label>
+      <label class="check"><input type="checkbox" id="pro-night"> <span data-i18n="settings.proNight"></span></label>
+      <label class="check"><input type="checkbox" id="pro-breaks"> <span data-i18n="settings.proBreaks"></span></label>
+    </div>
+    <div class="grid">
+      <label><span data-i18n="settings.tipsMin"></span> <input type="number" id="tips-min" min="1"></label>
+      <label><span data-i18n="settings.tipsMax"></span> <input type="number" id="tips-max" min="1"></label>
+      <label><span data-i18n="settings.sleepAfter"></span> <input type="number" id="sleep-after" min="1"></label>
+    </div>
+    <label class="check"><input type="checkbox" id="open-at-login"> <span data-i18n="settings.openAtLogin"></span>
+      <span class="muted" data-i18n="settings.openAtLoginNote"></span></label>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.reminders"></h2>
+    <div id="reminders"></div>
+    <button id="add-reminder" type="button" data-i18n="settings.addReminder"></button>
+  </section>
+
+  <script src="settings.js"></script>
+</body>
+</html>

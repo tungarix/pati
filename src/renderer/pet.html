@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline'">
+  <title>Pati</title>
+  <link rel="stylesheet" href="pet.css">
+</head>
+<body class="modern">
+  <div id="balloon" class="balloon" hidden>
+    <header class="head">
+      <span class="dot"></span>
+      <span id="pet-name" class="name"></span>
+      <span id="wait" class="wait" role="status"></span>
+    </header>
+    <p id="balloon-text" class="text"></p>
+    <div id="thread" class="thread" hidden></div>
+    <div id="balloon-buttons" class="buttons"></div>
+    <form id="chat-form" class="chat" hidden>
+      <input id="chat-input" autocomplete="off" maxlength="500">
+      <button id="chat-send" type="submit">↑</button>
+    </form>
+  </div>
+  <div id="stage">
+    <img id="sprite" alt="" draggable="false">
+    <div id="zzz" class="zzz" hidden><span>z</span><span>z</span><span>z</span></div>
+    <div id="shadow" class="shadow"></div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>

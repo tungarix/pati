@@ -1,0 +1,27 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+import { loadSettings } from '../src/main/settings.ts'
+
+const write = (data: object) => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pati-')), 'settings.json')
+  fs.writeFileSync(file, JSON.stringify(data))
+  return file
+}
+
+test('first run gets the defaults in the system language', () => {
+  const s = loadSettings(path.join(os.tmpdir(), 'pati-yok', 'settings.json'), 'en')
+  assert.equal(s.language, 'en')
+  assert.deepEqual(s.ai.servers, [])
+  assert.deepEqual(s.ai.tools, { clipboard: false, web: false, actions: true })
+  assert.deepEqual(s.ai.allowedActions, [])
+})
+
+test('a v0.2 single server becomes the first of the list, keeping its key', () => {
+  const s = loadSettings(write({ ai: { enabled: true, baseUrl: 'http://localhost:8081/v1', apiKey: 'local', model: '' } }), 'tr')
+  assert.deepEqual(s.ai.servers, [{ baseUrl: 'http://localhost:8081/v1', apiKey: 'local', model: '' }])
+  assert.equal(s.ai.memory, true)
+})
