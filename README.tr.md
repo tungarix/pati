@@ -11,6 +11,8 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 - **İş görür.** "Spotify'ı aç", "sesi kıs", "not al: …", "pil kaç?". Bir şey yapmadan önce sorar; "her zaman" diyebilirsin.
 - **Sesle konuşur.** Kısayola bas (varsayılan `Ctrl+Shift+Space`), konuş; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) sesini bilgisayarında yazıya çevirir, cevabı balonda görür ve sesli dinlersin.
 - **Gerektiğinde kendisi konuşur.** Sabah bilgisayar başına oturunca kısa bir brifing, 90 dakika ara vermezsen mola hatırlatması, gece çok geç olunca bir uyarı.
+- **İstersen ekranına bakar.** "Ekrana bak", "bu hatayı açıkla" ya da menüde **Ekrana bak**: izin sorar, tek bir ekran görüntüsü alıp görsel bir modele gösterir (llama.cpp'de `--mmproj` ile, Ollama'da `qwen2.5vl`). Görüntü hiçbir yere kaydedilmez.
+- **Odak modu.** "Odaklan" (ya da "50 dakika odaklanacağım") bir pomodoro başlatır: susar, süre bitince 5 dakika mola, her dördüncü turda uzun mola söyler.
 - **Hatırlatıcılar.** "Her 60 dakikada su iç", "her gün 17:00'de ders" ya da sohbette söyle: "20 dakika sonra hatırlat".
 - **Senin olsun.** Bir klasör PNG kare ve tek bir JSON dosyasıyla kendi karakterini ekle. Türkçe ve İngilizce, modern ya da klasik görünüm.
 
@@ -54,6 +56,7 @@ Varsayılan yeri `Belgeler\Pati Beyni`, ayarlardan değiştirilebilir:
 - `Chats/2026-10-17.md`: Her sohbet günü için bir not. Pati en üste kısa bir özet yazar ve son günlerin özetini okuyarak kaldığınız yerden devam eder.
 - `Memory.md`: Pati'nin senin hakkında bildikleri, her satırda bir bilgi. Bir satır eklersen öğrenir, silersen unutur.
 - `Notes.md`: Ondan aldırdığın notlar.
+- `Feedback.jsonl`: Sohbette 👍 ya da 👎 verdiğin cevaplar, arkasındaki konuşmanın tamamıyla. Birkaç yüz tane biriktiğinde küçük bir modeli karakterinin tarzıyla ince ayarlamaya yeter.
 
 Klasörü bir kez Obsidian'da kasa olarak aç. Sonra **Ayarlar > Hafıza > Obsidian'da aç** seni doğrudan oraya götürür.
 

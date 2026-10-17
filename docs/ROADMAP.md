@@ -45,26 +45,64 @@ JARVIS hissini tamamlayan adım.
 - Sesli cevap: kayıt yoksa yerel nöral TTS (Piper, Türkçe sesi var), o da yoksa Windows sesi.
 - Ses paketleri: karakterin kayıtlı sesleri (selam, onay, uyarı) + `manifest.json`.
 - Konuşurken ağız animasyonu sesle eşleşir.
+- ✅ Karakter boyutu: ayarlarda kaydırıcı, sağ tık ve tepsi menüsünde %50–%200.
 
-### v0.5: depo ve kalite
+### v0.5: geri bildirim ve odak modu
+İkisi de küçük, mevcut parçaların üstüne kurulur; aynı sürümde çıkar. ✅ Temel hali bitti; kalanlar aşağıda "sonra" diye işaretli.
+
+**👍/👎 eğitim verisi**
+- Modern balonda her yapay zekâ cevabının altında iki küçük düğme; klasik balonda yok.
+- Basınca beyin klasöründe `Feedback.jsonl`'a bir satır: `{ time, character, model, messages, answer, rating }`.
+  `messages` o cevabı üreten konuşmanın tamamı (sistem talimatı dahil), yani doğrudan ince ayar örneği.
+  Sonra: 👎'ye isteğe bağlı "nasıl olmalıydı?" kutusu; yazılan düzeltme `better` alanına.
+- Sonra: Ayarlar > Hafıza'da biriken örnek sayısı, klasörü aç düğmesi, `docs/fine-tune.md` rehberi
+  (Unsloth ile QLoRA; 9B için ~300 örnek iyi bir başlangıç, bulut GPU'da birkaç saat).
+- Test: kayıt biçimi ve dosyaya ekleme, `brain.ts` testlerinde.
+
+**Pomodoro / odak modu**
+- Menüde "Odaklan (25 dk)"; sohbette "25 dakika odaklanacağım" (`intents.ts`).
+- Odaktayken proaktif konuşma, ipuçları ve dolaşma susar; karakter oturur ya da uyur; balon başlığında
+  kalan süre. Hatırlatıcılar susmaz, onlar kullanıcının kendi isteği.
+- Bitince kısa mola, 4 turdan sonra uzun mola. Odak bitince 90 dakikalık mola sayacı sıfırlanır,
+  iki uyarı çakışmaz. Sonra: süreler ayarlardan (şimdilik 25/5/15 sabit; odak süresi sohbette söylenebilir).
+- Zamanlama `proactive.ts` gibi saf bir modülde (`focus.ts`), testli.
+
+### v0.6: ekran farkındalığı
+✅ Temel hali bitti: intent, menü düğmesi, izin, tek görüntü, sırayla görebilen sunucuyu bulma. Kalanlar: "görebilir" işareti ve rehber, bölge seçme, panodaki görsel.
+- "Ekrana bak", "bu hatayı açıkla" ya da kısayol: Electron `desktopCapturer` ile Pati'nin bulunduğu ekranın
+  görüntüsü. Yalnızca istenince, o an; arka planda asla çekilmez.
+- Görüntü OpenAI uyumlu `image_url` (base64) olarak gider: llama.cpp'de görsel model + `--mmproj`
+  (Qwen2.5-VL 7B, Gemma 3), Ollama'da `qwen2.5vl` / `llava`. Hız ve bağlam için 1280 px'e küçültülür.
+- Sunucu listesinde her sunucuya "görebilir" işareti. Görebilen sunucu yoksa Pati bunu söyler ve
+  rehbere götürür; metin sunucusu sohbet için kalmaya devam eder.
+- Gizlilik: yeni izin türü (`screen`, "Evet / Her zaman / Hayır"); görüntü diske yazılmaz, beyne
+  yalnızca soru ve cevap girer.
+- Sonra: sürükleyerek bölge seçme, panodaki görsele bakma.
+
+### v0.7: Shimeji fiziği
+En büyük iş; ayrı dalda, sırayla:
+1. Pencere bilgisi: `koffi` ile `user32` (`EnumWindows`, `GetWindowRect`, `IsWindowVisible`, gölgesiz kenar
+   için `DwmGetWindowAttribute`). Yerel modül derlemesi yok. Saniyede ~10 kez, yalnızca görünür pencereler.
+2. Fizik: yerçekimi; zemin görev çubuğu ya da altındaki pencerenin üst kenarı; pencere kapanınca ya da
+   kayınca düşer. Saf modül (`physics.ts`), testli.
+3. Fırlatma: sürükleme hızından başlangıç hızı, ekran kenarlarından seker.
+4. Tırmanma ve oturma: ekran kenarına tırmanır, pencere üstünde oturur.
+5. Yeni animasyonlar: `fall`, `land`, `climb`, `sit`, `thrown`; eksik olan `idle`'a düşer. Tungarix ve Atlas
+   kareleri `scripts/` üreticilerine eklenir.
+6. Ayarlarda aç/kapa; tam ekran oyun ve videoda karakter gizlenir.
+- Sonra: aynı anda birden fazla karakter.
+
+### v0.8: depo ve kalite
 - GitHub Actions: her push'ta tip kontrolü, testler; `v*` etiketinde kurulum dosyasını Releases'a koyma.
 - ESLint + Prettier.
 - `electron-updater` ile otomatik güncelleme.
-- Eğitim verisi: balonda 👍/👎; beğenilen cevaplar yerel bir veri setinde birikir. Birkaç yüz örnek
-  olunca küçük bir modeli karakter tarzıyla ince ayarlamak (QLoRA, bulut GPU) mümkün olur.
 
-### v0.6: Shimeji fiziği
-- Yerçekimi; açık pencerelerin üst kenarında yürüme ve oturma; kenarlara tırmanma; fırlatınca düşme.
-  Pencere konumları `user32` üzerinden (`koffi` ile, yerel modül derlemeden).
-- Yeni animasyonlar: `fall`, `land`, `climb`, `sit`, `thrown`; eksik olan `idle`'a düşer.
-- Aynı anda birden fazla karakter.
-
-### v0.7: eklenti sistemi
+### v0.9: eklenti sistemi
 - Eklenti = `manifest.json` + tek JS dosyası; ayrı süreçte, yalnızca izin verilen API ile
   (`say`, `ask`, `remind`, zamanlayıcılar, olaylar, kendi ayarları). Ağ ve dosya erişimi izinle.
 - Yerleşik eklentiler bu API ile yeniden yazılır (pomodoro, hava durumu, sistem durumu).
 
-### v0.8: karakter stüdyosu ve paket galerisi
+### v0.10: karakter stüdyosu ve paket galerisi
 - Uygulama içinde piksel editörü; sprite sheet ve GIF içe aktarma; `.pati` paketi olarak dışa aktarma.
 - `pati-gallery` deposu: topluluğun karakter, ses ve eklenti paketleri; uygulamada tek tıkla kurma.
 

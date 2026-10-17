@@ -4,24 +4,28 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
 
 import { detectLang, t } from '../shared/i18n.ts'
 import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
-import { chatWithTools, detectServers, listModels, systemPrompt, UnauthorizedError, withClock, type ChatMessage } from './ai.ts'
+import { askAboutImage, chatWithTools, detectServers, listModels, systemPrompt, UnauthorizedError, withClock, type ChatMessage } from './ai.ts'
 import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
-import { appendExchange, ensureBrain, getSummary, MEMORY_NOTE, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
+import { appendExchange, appendFeedback, ensureBrain, type FeedbackRecord, getSummary, MEMORY_NOTE, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
+import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
-import { matchIntent, type Intent } from './intents.ts'
+import { matchFocus, matchIntent, matchScreen, type Intent } from './intents.ts'
 import { runTool, toolDefinitions, type ToolContext } from './tools.ts'
 import { findModel, findWhisper, transcribe } from './voice.ts'
 
 const PET_W = 340
 const PET_H = 460
+// A bigger character needs a bigger window; smaller ones keep room for the balloon.
+const petW = () => Math.round(PET_W * Math.max(1, settings.size))
+const petH = () => Math.round(PET_H * Math.max(1, settings.size))
 
 const BUILT_IN_DIR = path.join(app.getAppPath(), 'characters')
 const USER_DIR = path.join(app.getPath('userData'), 'characters')
@@ -41,6 +45,7 @@ let dragTimer: NodeJS.Timeout | null = null
 const startedAt = Date.now()
 /** The chat so far with the current character, oldest first; cleared when the character changes. */
 let chatAbort: AbortController | null = null
+let focus: FocusState = FOCUS_OFF
 /** How much of today's chat the model sees again. */
 const CHAT_MEMORY = 20
 
@@ -62,7 +67,7 @@ function broadcastState(): void {
 }
 
 function stateForWindows() {
-  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus() }
+  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus(), focus }
 }
 
 // ---- The pet window ---------------------------------------------------------
@@ -72,18 +77,18 @@ function startPosition(): { x: number; y: number } {
   if (saved) {
     // Keep it only if it still lands on a connected screen.
     const area = screen.getDisplayNearestPoint(saved).workArea
-    if (saved.x >= area.x - PET_W / 2 && saved.x <= area.x + area.width - PET_W / 2 && saved.y >= area.y - PET_H / 2 && saved.y <= area.y + area.height - PET_H / 2)
+    if (saved.x >= area.x - petW() / 2 && saved.x <= area.x + area.width - petW() / 2 && saved.y >= area.y - petH() / 2 && saved.y <= area.y + area.height - petH() / 2)
       return saved
   }
   const area = screen.getPrimaryDisplay().workArea
-  return { x: area.x + area.width - PET_W - 40, y: area.y + area.height - PET_H }
+  return { x: area.x + area.width - petW() - 40, y: area.y + area.height - petH() }
 }
 
 function createPet(): void {
   const { x, y } = startPosition()
   pet = new BrowserWindow({
-    width: PET_W,
-    height: PET_H,
+    width: petW(),
+    height: petH(),
     x,
     y,
     transparent: true,
@@ -145,6 +150,15 @@ function menuTemplate(): Electron.MenuItemConstructorOptions[] {
         click: () => applySettings({ ...settings, characterId: c.id }),
       })),
     },
+    {
+      label: t(lang, 'settings.size'),
+      submenu: [0.5, 0.75, 1, 1.25, 1.5, 2].map(size => ({
+        label: `${size * 100}%`,
+        type: 'radio' as const,
+        checked: settings.size === size,
+        click: () => applySettings({ ...settings, size }),
+      })),
+    },
     { label: t(lang, pet?.isVisible() ? 'tray.hide' : 'tray.show'), click: togglePet },
     { label: t(lang, 'tray.openFolder'), click: openCharactersFolder },
     { type: 'separator' },
@@ -182,7 +196,13 @@ function openCharactersFolder(): void {
 }
 
 function applySettings(next: Settings): void {
+  const resized = next.size !== settings.size
   settings = next
+  if (resized && pet) {
+    // Grow up and to the left, so the character's feet stay where they were.
+    const b = pet.getBounds()
+    pet.setBounds({ x: b.x + b.width - petW(), y: b.y + b.height - petH(), width: petW(), height: petH() })
+  }
   saveSettings(SETTINGS_FILE, settings)
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings.openAtLogin })
   registerShortcut()
@@ -213,8 +233,17 @@ function startTimers(): void {
     proactive = r.state
     if (!r.event) return
     fs.writeFileSync(PROACTIVE_FILE, JSON.stringify({ briefingDay: proactive.briefingDay, nightDay: proactive.nightDay }), 'utf8')
-    if (settings.proactive.enabled) void speakUnasked(r.event)
+    if (settings.proactive.enabled && focus.phase !== 'focus') void speakUnasked(r.event)
   }, 30_000)
+
+  setInterval(() => {
+    const r = focusStep(focus, Date.now())
+    if (!r.event) return
+    // The focus break replaces the 90-minute nudge; its count starts again after it.
+    if (r.event !== 'breakDone') proactive = { ...proactive, activeSince: null }
+    setFocus(r.state)
+    send({ type: 'say', text: t(settings.language, `focus.${r.event}`), kind: 'reminder' })
+  }, 5_000)
 
   const fired = readFired()
   setInterval(() => {
@@ -583,6 +612,65 @@ async function runIntent(intent: Intent, ctx: ToolContext): Promise<string> {
   return t(lang, `intent.${intent.args.action}`)
 }
 
+function setFocus(next: FocusState): void {
+  focus = next
+  broadcastState()
+}
+
+/** Starts (minutes) or stops focus mode; the reply for the balloon. */
+function focusCommand(cmd: number | 'stop'): string {
+  const lang = settings.language
+  if (cmd === 'stop') {
+    setFocus({ ...FOCUS_OFF, round: focus.round })
+    return t(lang, 'focus.stopped')
+  }
+  setFocus(startFocus(focus, Date.now(), cmd))
+  return t(lang, 'focus.started', { m: cmd })
+}
+
+/** Recent answers by id, so a 👍/👎 can save the whole conversation that produced one. */
+const rateable = new Map<string, Omit<FeedbackRecord, 'rating'>>()
+
+/** The screen the pet is on as a JPEG (base64), at most 1280 px wide, without the pet itself. */
+async function captureScreen(): Promise<string> {
+  const display = pet ? screen.getDisplayMatching(pet.getBounds()) : screen.getPrimaryDisplay()
+  const width = Math.min(1280, display.size.width)
+  pet?.setOpacity(0)
+  try {
+    await new Promise(r => setTimeout(r, 120)) // let the window actually disappear
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width, height: Math.round((width * display.size.height) / display.size.width) } })
+    const source = sources.find(s => s.display_id === String(display.id)) ?? sources[0]
+    if (!source) throw new Error('no screen to capture')
+    return source.thumbnail.toJPEG(80).toString('base64')
+  } finally {
+    pet?.setOpacity(1)
+  }
+}
+
+/** Asks first, takes one screenshot, shows it to the first server that can see. The image is never saved. */
+async function lookAtScreen(question: string, signal: AbortSignal): Promise<string> {
+  const lang = settings.language
+  if (!(await confirmAction('screen', ''))) return t(lang, 'intent.declined')
+  let jpeg: string
+  try {
+    jpeg = await captureScreen()
+  } catch (err) {
+    console.error('screen capture failed:', err)
+    return t(lang, 'intent.failed')
+  }
+  const system = systemPrompt(currentCharacter().persona[lang], lang)
+  for (const server of settings.ai.servers) {
+    try {
+      const model = server.model || (await listModels(server.baseUrl, server.apiKey))[0]
+      if (model) return (await askAboutImage(server, model, system, withClock(question, lang, new Date()), jpeg, signal)) || '…'
+    } catch (err) {
+      if (signal.aborted) return ''
+      console.error(`screen question via ${server.baseUrl} failed:`, err) // most often: not a vision model
+    }
+  }
+  return t(lang, 'screen.noVision')
+}
+
 /** Tries each server in order; the first that answers wins. */
 async function chat(text: string, mayDiscover = true): Promise<void> {
   chatAbort?.abort()
@@ -592,6 +680,19 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
   const now = new Date()
   const brain = brainDir()
   ensureBrain(brain, lang)
+  const focusCmd = mayDiscover ? matchFocus(text) : null
+  if (focusCmd !== null) {
+    const reply = focusCommand(focusCmd)
+    appendExchange(brain, new Date(), lang, currentCharacter().name, text, reply)
+    return send({ type: 'ai', event: 'done', text: reply })
+  }
+  const screenQuestion = settings.ai.tools.actions && mayDiscover ? matchScreen(text) : null
+  if (screenQuestion) {
+    const reply = await lookAtScreen(screenQuestion, abort.signal)
+    if (abort.signal.aborted) return
+    appendExchange(brain, new Date(), lang, currentCharacter().name, text, reply)
+    return send({ type: 'ai', event: 'done', text: reply })
+  }
   const intent = settings.ai.tools.actions && mayDiscover ? matchIntent(text, lang) : null
   if (intent) {
     const reply = await runIntent(intent, ctx)
@@ -612,7 +713,10 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
       const run = (name: string, args: string) => ((remembered ||= name === 'remember'), runTool(name, args, ctx))
       const answer = (await chatWithTools(server, model, messages, toolDefinitions(ctx), run, abort.signal)) || '…'
       appendExchange(brain, new Date(), lang, currentCharacter().name, text, answer)
-      send({ type: 'ai', event: 'done', text: answer })
+      const id = String(Date.now())
+      rateable.set(id, { time: new Date().toISOString(), character: currentCharacter().id, model, messages, answer })
+      if (rateable.size > 20) rateable.delete(rateable.keys().next().value!)
+      send({ type: 'ai', event: 'done', text: answer, id })
       void summarizePastDays(server, model)
       // Small models often chat past a self-introduction without saving it; a second,
       // memory-only pass after the reply is on screen catches those without a wait.
@@ -640,6 +744,13 @@ ipcMain.on('ai-key', (_e, key: string) => {
   void chat(waiting.text, false)
 })
 ipcMain.on('ai-stop', () => chatAbort?.abort())
+ipcMain.on('rate', (_e, id: string, rating: 'up' | 'down') => {
+  const entry = rateable.get(id)
+  if (!entry || (rating !== 'up' && rating !== 'down')) return
+  rateable.delete(id) // one rating per answer
+  appendFeedback(brainDir(), { ...entry, rating })
+})
+ipcMain.handle('focus', (_e, on: boolean) => focusCommand(on ? FOCUS_MINUTES : 'stop'))
 ipcMain.handle('ai-detect', () => detectServers())
 ipcMain.handle('ai-models', (_e, server: { baseUrl: string; apiKey: string }) =>
   listModels(server.baseUrl, server.apiKey).catch(() => [] as string[]),
@@ -732,8 +843,8 @@ ipcMain.on('drag-end', () => {
 ipcMain.handle('move-by', (_e, dx: number) => {
   if (!pet) return { atEdge: true }
   const [x, y] = pet.getPosition()
-  const area = screen.getDisplayNearestPoint({ x: x + PET_W / 2, y: y + PET_H / 2 }).workArea
-  const nx = Math.max(area.x - PET_W / 4, Math.min(area.x + area.width - (PET_W * 3) / 4, x + dx))
+  const area = screen.getDisplayNearestPoint({ x: x + petW() / 2, y: y + petH() / 2 }).workArea
+  const nx = Math.max(area.x - petW() / 4, Math.min(area.x + area.width - (petW() * 3) / 4, x + dx))
   pet.setPosition(Math.round(nx), y)
   return { atEdge: nx !== x + dx }
 })

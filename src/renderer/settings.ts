@@ -364,6 +364,7 @@ function apply(state: State) {
     settings.look = look.value as Settings['look']
     save()
   }
+  bindNumber('size', () => settings.size, v => (settings.size = v))
   bindCheck('ai-enabled', () => settings.ai.enabled, v => (settings.ai.enabled = v))
   renderServers()
   bindCheck('ai-memory', () => settings.ai.memory, v => (settings.ai.memory = v))

@@ -90,6 +90,8 @@ export interface Settings {
   /** Balloon style: today's card, or the cream XP assistant balloon. */
   look: 'modern' | 'classic'
   characterId: string
+  /** Character size on screen, 0.5-2 times the pack's own size. */
+  size: number
   speech: { enabled: boolean; voiceName: string | null; rate: number; pitch: number }
   tips: { enabled: boolean; minMinutes: number; maxMinutes: number }
   /**
@@ -125,7 +127,8 @@ export type PetCommand =
   | { type: 'idle'; seconds: number }
   | { type: 'menu' }
   | { type: 'ai'; event: 'token'; text: string }
-  | { type: 'ai'; event: 'done'; text: string }
+  /** `id` is set on model answers, which can be rated 👍/👎. */
+  | { type: 'ai'; event: 'done'; text: string; id?: string }
   | { type: 'ai'; event: 'error'; text: string }
   | { type: 'ai'; event: 'needKey'; text: string }
   | { type: 'confirm'; id: string; text: string }

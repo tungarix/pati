@@ -13,6 +13,7 @@ declare global {
 interface State {
   settings: Settings
   character: Character
+  focus: { phase: 'off' | 'focus' | 'break'; until: number }
 }
 
 type Button = [label: string, onPress: () => void, isPrimary?: boolean]
@@ -51,6 +52,9 @@ let isAskingKey = false
 let waitingSince: number | null = null
 let balloonUntil = 0
 let hushUntil = 0
+let focus: State['focus'] = { phase: 'off', until: 0 }
+/** Quiet for an hour, or focusing: no tips, no unasked talk. */
+const isQuiet = () => Date.now() < hushUntil || focus.phase === 'focus'
 let nextTipAt = 0
 let isInteractive = false
 
@@ -79,11 +83,13 @@ function drawFrame() {
   if (sprite.src !== src) sprite.src = src
 }
 
-sprite.addEventListener('load', () => {
-  sprite.style.width = `${sprite.naturalWidth * character.scale}px`
-  sprite.style.height = `${sprite.naturalHeight * character.scale}px`
-  document.documentElement.style.setProperty('--balloon-bottom', `${sprite.naturalHeight * character.scale + 22}px`)
-})
+function sizeSprite() {
+  const k = character.scale * settings.size
+  sprite.style.width = `${sprite.naturalWidth * k}px`
+  sprite.style.height = `${sprite.naturalHeight * k}px`
+  document.documentElement.style.setProperty('--balloon-bottom', `${sprite.naturalHeight * k + 22}px`)
+}
+sprite.addEventListener('load', sizeSprite)
 
 function jump() {
   sprite.classList.remove('jump')
@@ -218,17 +224,39 @@ chatForm.addEventListener('submit', e => {
 })
 chatInput.addEventListener('keydown', e => e.key === 'Escape' && closeBalloon())
 
-function onAi(event: 'token' | 'done' | 'error' | 'needKey', text: string) {
+function onAi(event: 'token' | 'done' | 'error' | 'needKey', text: string, id?: string) {
   if (event !== 'token') waitingSince = null
   if (!isChatting) return
   waitLabel.textContent = ''
   if (event !== 'token') addBubble('pet', text)
+  if (id && settings.look === 'modern') addRating(id)
   balloonUntil = Date.now() + 120_000
   if (event === 'needKey') setKeyMode(true)
   if (event !== 'token') {
     if (event === 'done') speak(text)
     chatInput.focus()
   }
+}
+
+/** 👍/👎 under a model answer; rated answers become training examples in the brain. */
+function addRating(id: string) {
+  const row = document.createElement('div')
+  row.className = 'rate'
+  for (const [rating, icon] of [['up', '👍'], ['down', '👎']] as const) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.textContent = icon
+    b.title = tr(rating === 'up' ? 'chat.rateUp' : 'chat.rateDown')
+    b.setAttribute('aria-label', b.title)
+    b.onclick = () => {
+      api.rate(id, rating)
+      b.classList.add('chosen')
+      row.querySelectorAll('button').forEach(x => (x.disabled = true))
+    }
+    row.append(b)
+  }
+  thread.append(row)
+  thread.scrollTop = thread.scrollHeight
 }
 
 // ---- Talking by voice -----------------------------------------------------------
@@ -342,10 +370,17 @@ function openMenu() {
     [tr('menu.time'), () => say(tr('balloon.time', { time }), [], 5)],
     [tr('menu.tip'), () => say(pick(l.tips), [[l.thanks, closeBalloon]], 12)],
     [tr('menu.settings'), () => (closeBalloon(), api.openSettings())],
+    focus.phase === 'focus'
+      ? [tr('menu.focusStop', { m: Math.max(1, Math.ceil((focus.until - Date.now()) / 60_000)) }), () => void api.focus(false).then(t => say(t, [], 5))]
+      : [tr('menu.focus'), () => void api.focus(true).then(t => say(t, [], 5))],
     [tr('menu.hush'), () => ((hushUntil = Date.now() + 3_600_000), say(l.hush, [], 4))],
     [tr('menu.hide'), () => (closeBalloon(), api.hidePet())],
   ]
-  if (settings.ai.enabled) buttons.unshift([tr('menu.chat'), openChat])
+  if (settings.ai.enabled) {
+    // Opens the chat and asks, so the answer (and any permission question) lands in the thread.
+    if (settings.ai.tools.actions) buttons.splice(1, 0, [tr('menu.look'), () => (openChat(), sendChat(tr('menu.lookAsk')))])
+    buttons.unshift([tr('menu.chat'), openChat])
+  }
   say(l.menu, buttons, 20, false)
 }
 
@@ -442,16 +477,16 @@ async function tickOnce() {
     isDragging,
     isBalloonOpen: !balloon.hidden,
     isSpeaking,
-    wander: settings.wander,
+    wander: settings.wander && focus.phase !== 'focus',
     hitEdge,
     random: Math.random,
   })
   behavior = r.state
   hitEdge = false
-  if (r.events.includes('woke-up') && now > hushUntil) say(pick(lines().wake), [], 4)
+  if (r.events.includes('woke-up') && !isQuiet()) say(pick(lines().wake), [], 4)
   if (r.events.includes('walk-ended')) api.walkEnded()
 
-  if (behavior.mode === 'idle' && balloon.hidden && settings.tips.enabled && now > nextTipAt && now > hushUntil) {
+  if (behavior.mode === 'idle' && balloon.hidden && settings.tips.enabled && now > nextTipAt && !isQuiet()) {
     scheduleTip()
     say(pick(lines().tips), [[lines().thanks, closeBalloon]], 12)
   }
@@ -474,12 +509,14 @@ function applyLook() {
   document.body.className = settings.look
   document.documentElement.style.setProperty('--accent', character.accent)
   petName.textContent = character.name
+  if (sprite.naturalWidth) sizeSprite()
 }
 
 function applyState(state: State) {
   const changed = character?.id !== state.character.id
   settings = state.settings
   character = state.character
+  focus = state.focus
   applyLook()
   if (changed) {
     frame = 0
@@ -494,11 +531,11 @@ api.onCommand((cmd: PetCommand) => {
     if (cmd.kind === 'reminder') remind(cmd.text)
     // Unasked talk never interrupts a chat and respects "quiet for an hour".
     else if (cmd.kind === 'proactive') {
-      if (!isChatting && Date.now() > hushUntil) say(cmd.text, [[tr('menu.chat'), openChat, true], [lines().thanks, closeBalloon]], 25)
+      if (!isChatting && !isQuiet()) say(cmd.text, [[tr('menu.chat'), openChat, true], [lines().thanks, closeBalloon]], 25)
     } else say(cmd.text)
   }
   else if (cmd.type === 'menu') openMenu()
-  else if (cmd.type === 'ai') onAi(cmd.event, cmd.text)
+  else if (cmd.type === 'ai') onAi(cmd.event, cmd.text, cmd.event === 'done' ? cmd.id : undefined)
   else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text)
   else if (cmd.type === 'listen') toggleListening()
 })

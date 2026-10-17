@@ -59,3 +59,20 @@ export function matchIntent(text: string, _lang: Lang): Intent | null {
 
   return null
 }
+
+/** "25 dakika odaklanacağım", "odak modu", "pomodoro başlat", "odağı bitir": minutes to focus, 'stop', or null. */
+export function matchFocus(text: string): number | 'stop' | null {
+  const t = lower(text).replace(/[.!?]+$/, '')
+  if (/^(odağı|odak modunu|pomodoroyu|pomodoro'yu) (bitir|kapat|durdur)$|^(stop|end) (focus|the pomodoro|pomodoro)$/.test(t)) return 'stop'
+  const m = /^(?:(\d{1,3}) ?(?:dakika|dk|minutes?|min) )?(?:odaklan(?:acağım|ıyorum|alım|mak istiyorum)?|odak modu(?:nu aç| aç)?|pomodoro(?: başlat)?|(?:start )?(?:a )?pomodoro|focus(?: mode)?)(?: for (\d{1,3}) ?(?:minutes?|min))?$/.exec(t)
+  if (!m) return null
+  const minutes = Number(m[1] ?? m[2] ?? 25)
+  return minutes >= 1 && minutes <= 180 ? minutes : null
+}
+
+/** "Ekrana bak", "bu hatayı açıkla", "what's on my screen?": the question to ask about a screenshot, or null. */
+export function matchScreen(text: string): string | null {
+  const t = lower(text)
+  const asks = /\bekran(?! kart)\S*\s(.*\s)?(bak|ne var|ne görüyorsun|oku|açıkla|anlat)|\bbu (hatayı|hata mesajını|ekranı) (açıkla|oku)|\b(look at|check) (my |the )?screen|\bwhat'?s on (my |the )?screen|\bexplain this (error|screen)/
+  return asks.test(t) ? text.trim() : null
+}

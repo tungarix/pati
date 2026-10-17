@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { matchIntent } from '../src/main/intents.ts'
+import { matchFocus, matchIntent, matchScreen } from '../src/main/intents.ts'
 
 const m = (s: string) => matchIntent(s, 'tr')
 
@@ -43,4 +43,27 @@ test('opening an app by name; websites still go to the model', () => {
   assert.deepEqual(m("Discord'u başlatır mısın"), { tool: 'open_app', args: { name: 'discord' } })
   assert.equal(m("YouTube'da lo-fi müzik aç"), null)
   assert.deepEqual(m('Masaüstümü aç'), { tool: 'open_folder', args: { which: 'desktop' } })
+})
+
+test('focus mode starts with an optional length and stops', () => {
+  assert.equal(matchFocus('25 dakika odaklanacağım'), 25)
+  assert.equal(matchFocus('Odaklan'), 25)
+  assert.equal(matchFocus('pomodoro başlat'), 25)
+  assert.equal(matchFocus('50 dk odaklanalım!'), 50)
+  assert.equal(matchFocus('focus for 40 minutes'), 40)
+  assert.equal(matchFocus('odağı bitir'), 'stop')
+  assert.equal(matchFocus('odaklanamıyorum hiç'), null)
+  assert.equal(matchFocus('500 dakika odaklan'), null)
+})
+
+test('questions about the screen are recognised, other mentions of it are not', () => {
+  assert.equal(matchScreen('Ekrana bak, ne görüyorsun?'), 'Ekrana bak, ne görüyorsun?')
+  assert.equal(matchScreen('ekrandaki hatayı açıkla'), 'ekrandaki hatayı açıkla')
+  assert.equal(matchScreen('bu hatayı açıkla'), 'bu hatayı açıkla')
+  assert.equal(matchScreen('ekranı oku'), 'ekranı oku')
+  assert.equal(matchScreen('ekranada ne var'), 'ekranada ne var') // typos too
+  assert.equal(matchScreen('ekran kartında ne var'), null)
+  assert.equal(matchScreen("what's on my screen?"), "what's on my screen?")
+  assert.equal(matchScreen('yeni ekran kartı almalı mıyım'), null)
+  assert.equal(matchScreen('ekranım çok parlak'), null)
 })

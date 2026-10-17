@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { appendExchange, dayFile, ensureBrain, getSummary, pastBlock, pastDays, todaysMessages, withSummary } from '../src/main/brain.ts'
+import { appendExchange, appendFeedback, dayFile, FEEDBACK_FILE, ensureBrain, getSummary, pastBlock, pastDays, todaysMessages, withSummary } from '../src/main/brain.ts'
 
 const brain = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pati-brain-'))
@@ -48,4 +48,14 @@ test('earlier days come newest first without today; the prompt block lists summa
   const days = pastDays(dir, new Date(2026, 9, 15), 5)
   assert.deepEqual(days.map(d => d.key), ['2026-10-14', '2026-10-13', '2026-10-12'])
   assert.equal(pastBlock(days, 'tr'), 'Önceki günlerde konuştuklarınız (eskiden yeniye):\n- 2026-10-12: Birinci gün.\n- 2026-10-14: Üçüncü gün.')
+})
+
+test('rated answers pile up in Feedback.jsonl, one per line', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pati-fb-'))
+  const base = { time: 't', character: 'atlas', model: 'm', messages: [{ role: 'user' as const, content: 'selam' }], answer: 'Merhaba!' }
+  appendFeedback(dir, { ...base, rating: 'up' })
+  appendFeedback(dir, { ...base, answer: 'Ne?', rating: 'down' })
+  const rows = fs.readFileSync(path.join(dir, FEEDBACK_FILE), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+  assert.deepEqual(rows.map(r => [r.answer, r.rating]), [['Merhaba!', 'up'], ['Ne?', 'down']])
+  assert.deepEqual(rows[0].messages, base.messages)
 })

@@ -11,6 +11,8 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 - **Gets things done.** "Open Spotify", "turn the volume down", "take a note: …", "how's my battery?". It asks before acting, and you can say "always".
 - **Talks by voice.** Press the shortcut (`Ctrl+Shift+Space` by default) and speak; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) turns it into text on your computer, and you see and hear the answer.
 - **Speaks up when it matters.** A short briefing when you sit down in the morning, a nudge after 90 minutes without a break, a word when it is very late.
+- **Looks at your screen when you ask.** "What's on my screen?", "explain this error" or **Look at my screen** in the menu: after asking, it takes one screenshot and shows it to a vision model (llama.cpp with `--mmproj`, or `qwen2.5vl` in Ollama). The image is never saved.
+- **Focus mode.** "Focus" (or "focus for 50 minutes") starts a pomodoro: it stays quiet, then calls a 5-minute break, and a long one every fourth round.
 - **Reminders.** "Every 60 minutes, drink water", "every day at 17:00, study", or just tell it in chat: "remind me in 20 minutes".
 - **Make it yours.** Add your own character with a folder of PNG frames and one JSON file. Turkish and English, modern or classic look.
 
@@ -54,6 +56,7 @@ By default `Documents\Pati Beyni`, changeable in settings:
 - `Chats/2026-10-17.md`: one note per day of chat. Pati writes a short summary at the top and reads the last few to pick up where you left off.
 - `Memory.md`: what Pati knows about you, one line per fact. Add a line and it learns; delete one and it forgets.
 - `Notes.md`: notes you asked it to take.
+- `Feedback.jsonl`: answers you rated 👍 or 👎 in the chat, each with the whole conversation behind it. A few hundred of these are enough to fine-tune a small model in your character's style.
 
 Open the folder as a vault in Obsidian once; after that **Settings > Memory > Open in Obsidian** takes you there.
 

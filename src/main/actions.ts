@@ -9,7 +9,7 @@ export type Folder = 'desktop' | 'documents' | 'downloads' | 'pictures' | 'music
 export const FOLDERS: Folder[] = ['desktop', 'documents', 'downloads', 'pictures', 'music', 'videos', 'brain']
 
 /** Kinds of action that ask the user first (once, or every time). */
-export type ActionKind = 'open_app' | 'open_website' | 'media' | 'open_folder'
+export type ActionKind = 'open_app' | 'open_website' | 'media' | 'open_folder' | 'screen'
 
 const fold = (s: string) =>
   s

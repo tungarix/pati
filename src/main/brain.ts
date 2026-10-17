@@ -11,6 +11,7 @@ import type { ChatMessage } from './ai.ts'
 export const CHATS_DIR = 'Chats'
 export const MEMORY_NOTE = 'Memory.md'
 const INDEX_NOTE = 'Pati.md'
+export const FEEDBACK_FILE = 'Feedback.jsonl'
 
 const LABEL = { tr: { you: 'Sen', summary: 'Özet' }, en: { you: 'You', summary: 'Summary' } }
 const SUMMARY_HEADING = /^## (Özet|Summary)\s*$/m
@@ -139,4 +140,20 @@ export function transcript(md: string, lang: Lang): string {
   return parseExchanges(md)
     .map(m => `${m.role === 'user' ? you : 'Pati'}: ${m.content}`)
     .join('\n')
+}
+
+/** One rated answer: the whole conversation that produced it, ready as a fine-tuning example. */
+export interface FeedbackRecord {
+  time: string
+  character: string
+  model: string
+  messages: ChatMessage[]
+  answer: string
+  rating: 'up' | 'down'
+}
+
+/** Adds a rated answer to Feedback.jsonl, one JSON object per line. */
+export function appendFeedback(dir: string, record: FeedbackRecord): void {
+  fs.mkdirSync(dir, { recursive: true })
+  fs.appendFileSync(path.join(dir, FEEDBACK_FILE), JSON.stringify(record) + '\n', 'utf8')
 }

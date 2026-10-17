@@ -8,6 +8,15 @@ All notable changes to Pati. Versions follow [semantic versioning](https://semve
 - Talk by voice: a global push-to-talk shortcut (`Ctrl+Shift+Space`, changeable in Settings) starts listening and a pause ends it. Speech is turned into text on the computer with whisper.cpp, found on `PATH` or picked in Settings, in Turkish or English; the text goes into the chat like a typed message and the answer is read aloud.
 - A microphone button in the chat and a listening indicator with a level wave, in the modern and the classic balloon.
 
+## Unreleased
+
+### Added
+- Talk by voice: a push-to-talk shortcut, transcribed locally by whisper.cpp.
+- Character size from 50% to 200%, in settings and in the right-click and tray menus.
+- 👍/👎 under each AI answer in the modern balloon; rated answers are saved with their conversation to `Feedback.jsonl` in the brain, as fine-tuning data.
+- Looking at the screen on request ("what's on my screen?", "explain this error", or the menu): one screenshot, after asking, shown to a vision model and never saved.
+- Focus mode: 25 minutes (or any length you say) of quiet, then a short break, a long one every fourth round. Tips, wandering and unasked talk pause meanwhile; reminders still come.
+
 ## 0.3.0 (2026-10-17)
 
 ### Added

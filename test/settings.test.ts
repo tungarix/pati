@@ -30,3 +30,10 @@ test('settings from before voice get the voice defaults', () => {
   const s = loadSettings(write({ language: 'tr' }), 'tr')
   assert.deepEqual(s.voice, { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' })
 })
+
+test('size defaults to 1 and stays within 0.5-2', () => {
+  assert.equal(loadSettings(write({ language: 'tr' }), 'tr').size, 1)
+  assert.equal(loadSettings(write({ size: 9 }), 'tr').size, 2)
+  assert.equal(loadSettings(write({ size: 0.1 }), 'tr').size, 0.5)
+  assert.equal(loadSettings(write({ size: 1.4 }), 'tr').size, 1.4)
+})

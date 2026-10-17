@@ -89,6 +89,7 @@
   "settings.look": "Look",
   "settings.lookModern": "Modern",
   "settings.lookClassic": "Classic (XP balloon)",
+  "settings.size": "Size",
   "confirm.open_app": "Shall I open \"{what}\"?",
   "confirm.open_website": "Shall I open {what} in your browser?",
   "confirm.media": "{what}?",
@@ -149,5 +150,18 @@
   "settings.voiceModel": "Model file (ggml-*.bin)",
   "settings.voiceChoose": "Choose…",
   "settings.voiceMissing": "not found",
-  "settings.voiceHelp": "What you say is turned into text on your computer by whisper.cpp and sent nowhere. If you don't have it, download a release from github.com/ggml-org/whisper.cpp and add a multilingual model such as ggml-small.bin (models ending in .en only know English)."
+  "settings.voiceHelp": "What you say is turned into text on your computer by whisper.cpp and sent nowhere. If you don't have it, download a release from github.com/ggml-org/whisper.cpp and add a multilingual model such as ggml-small.bin (models ending in .en only know English).",
+  "chat.rateUp": "Good answer",
+  "chat.rateDown": "Bad answer",
+  "menu.focus": "Focus (25 min)",
+  "menu.focusStop": "End focus ({m} min left)",
+  "focus.started": "OK, {m} minutes of focus. I'll stay quiet and tell you when it's over.",
+  "focus.stopped": "Focus ended. We can talk again.",
+  "focus.focusDone": "Focus time's up, nice work! Take 5 minutes: stand up, drink some water, rest your eyes.",
+  "focus.longFocusDone": "Four rounds done, great job! Time for a long 15-minute break.",
+  "focus.breakDone": "Break's over. Just say \"focus\" for another round.",
+  "confirm.screen": "Shall I take a screenshot and show it to the model? It is not saved anywhere.",
+  "screen.noVision": "I could not find a model that can see. You need a vision model: start one like Qwen2.5-VL or Gemma 3 in llama.cpp with its --mmproj file, or pull qwen2.5vl in Ollama.",
+  "menu.look": "Look at my screen",
+  "menu.lookAsk": "Look at my screen: what do you see? Keep it short."
 }

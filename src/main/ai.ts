@@ -170,7 +170,13 @@ interface ToolCall {
   function: { name: string; arguments: string }
 }
 
-type WireMessage = ChatMessage | { role: 'assistant'; content: string; tool_calls: ToolCall[] } | { role: 'tool'; tool_call_id: string; content: string }
+type ImagePart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+
+type WireMessage =
+  | ChatMessage
+  | { role: 'user'; content: ImagePart[] }
+  | { role: 'assistant'; content: string; tool_calls: ToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string }
 
 async function complete(
   server: Server,
@@ -234,4 +240,13 @@ export async function chatWithTools(
   }
   // Out of rounds: one last answer with what it has, no more tools.
   return plainText((await complete(server, model, convo, [], signal)).content ?? '')
+}
+
+/**
+ * Shows the model a JPEG with the question. Only vision models (llama.cpp with
+ * --mmproj, Ollama's qwen2.5vl / llava) accept it; others answer with an HttpError.
+ */
+export async function askAboutImage(server: Server, model: string, system: string, question: string, jpegBase64: string, signal: AbortSignal): Promise<string> {
+  const user = { role: 'user' as const, content: [{ type: 'text' as const, text: question }, { type: 'image_url' as const, image_url: { url: `data:image/jpeg;base64,${jpegBase64}` } }] }
+  return plainText((await complete(server, model, [{ role: 'system', content: system }, user], [], signal)).content ?? '')
 }
