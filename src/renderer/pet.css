@@ -204,3 +204,24 @@ html, body {
 }
 .classic .buttons button:hover { background: linear-gradient(#fff, #fde4a0); }
 .classic .chat input { font: 12px Tahoma, sans-serif; padding: 4px 6px; border: 1px solid #7f9db9; border-radius: 2px; }
+
+/* ---- Listening: microphone and a level wave ----------------------------------------- */
+
+.listen { display: flex; align-items: center; gap: 8px; }
+.listen[hidden] { display: none; }
+.listen .mic { width: 16px; height: 16px; fill: currentColor; flex: none; }
+.listen .bars { display: flex; align-items: center; gap: 3px; height: 18px; }
+.listen .bars i { width: 3px; height: 100%; border-radius: 2px; background: currentColor; transform: scaleY(0.15); transition: transform 90ms linear; }
+.listen:not(.active) .bars { display: none; }
+.listen .label { font-size: 12px; }
+.listen.active .mic { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.45; } }
+.mic-button[hidden] { display: none; }
+
+.modern .listen { color: var(--accent); }
+.modern .listen .label { color: var(--muted); }
+.modern .chat .mic-button { background: transparent; color: var(--muted); font-size: 14px; }
+.modern .chat .mic-button.active { background: var(--accent); color: #fff; }
+
+.classic .listen { color: #003c74; }
+.classic .chat .mic-button.active { background: linear-gradient(#fde4a0, #f5c040); }

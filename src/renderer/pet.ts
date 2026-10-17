@@ -1,6 +1,7 @@
 import { INITIAL, step, type BehaviorState } from '../core/behavior.ts'
 import type { PatiApi } from '../preload.ts'
 import { t, type MessageKey } from '../shared/i18n.ts'
+import { encodeWav } from '../shared/wav.ts'
 import type { AnimationName, Character, CharacterLines, PetCommand, Settings } from '../shared/types.ts'
 
 declare global {
@@ -28,6 +29,10 @@ const chatSend = document.getElementById('chat-send') as HTMLButtonElement
 const thread = document.getElementById('thread') as HTMLDivElement
 const petName = document.getElementById('pet-name') as HTMLSpanElement
 const waitLabel = document.getElementById('wait') as HTMLSpanElement
+const listenBox = document.getElementById('listen') as HTMLDivElement
+const listenLabel = document.getElementById('listen-label') as HTMLSpanElement
+const listenBars = [...listenBox.querySelectorAll<HTMLElement>('.bars i')]
+const chatMic = document.getElementById('chat-mic') as HTMLButtonElement
 
 let settings: Settings
 let character: Character
@@ -134,6 +139,7 @@ function say(text: string, buttons: Button[] = [], seconds = 8, withVoice = true
 }
 
 function closeBalloon() {
+  stopListening?.(false)
   balloon.hidden = true
   speechSynthesis.cancel()
   if (isChatting) api.aiStop()
@@ -182,15 +188,13 @@ function openChat() {
   addBubble('pet', lines().menu)
   chatInput.placeholder = tr('chat.placeholder')
   chatSend.title = tr('chat.send')
+  chatMic.hidden = !settings.voice.enabled
+  setListening(!!stopListening, listenLabel.textContent ?? '')
   api.focusPet()
   chatInput.focus()
 }
 
-chatForm.addEventListener('submit', e => {
-  e.preventDefault()
-  const text = chatInput.value.trim()
-  if (!text) return
-  chatInput.value = ''
+function sendChat(text: string) {
   // A typed key is not shown back, not even masked.
   if (!isAskingKey) addBubble('user', text)
   showTyping()
@@ -203,6 +207,14 @@ chatForm.addEventListener('submit', e => {
   } else {
     api.aiChat(text)
   }
+}
+
+chatForm.addEventListener('submit', e => {
+  e.preventDefault()
+  const text = chatInput.value.trim()
+  if (!text) return
+  chatInput.value = ''
+  sendChat(text)
 })
 chatInput.addEventListener('keydown', e => e.key === 'Escape' && closeBalloon())
 
@@ -218,6 +230,85 @@ function onAi(event: 'token' | 'done' | 'error' | 'needKey', text: string) {
     chatInput.focus()
   }
 }
+
+// ---- Talking by voice -----------------------------------------------------------
+
+/** Stops the current recording and sends it on (or drops it); null while not listening. */
+let stopListening: ((send?: boolean) => void) | null = null
+
+function setListening(on: boolean, label = '') {
+  listenBox.hidden = !on && !label
+  listenBox.classList.toggle('active', on)
+  listenLabel.textContent = label
+  chatMic.classList.toggle('active', on)
+  chatMic.title = tr(on ? 'voice.stop' : 'voice.start')
+}
+
+function toggleListening() {
+  if (stopListening) stopListening()
+  else void startListening()
+}
+
+async function startListening() {
+  if (!isChatting) openChat()
+  speechSynthesis.cancel()
+  balloonUntil = Date.now() + 120_000
+  let stream: MediaStream
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } })
+  } catch {
+    addBubble('pet', tr('voice.noMic'))
+    return
+  }
+  // whisper.cpp wants 16 kHz mono; the context resamples the microphone for us.
+  const ctx = new AudioContext({ sampleRate: 16000 })
+  const source = ctx.createMediaStreamSource(stream)
+  // shortcut: ScriptProcessorNode is deprecated; move to an AudioWorklet if Chromium drops it.
+  const node = ctx.createScriptProcessor(4096, 1, 1)
+  const chunks: Float32Array[] = []
+  const started = Date.now()
+  let heard = false
+  let quietSince = started
+  node.onaudioprocess = e => {
+    const data = e.inputBuffer.getChannelData(0)
+    chunks.push(new Float32Array(data))
+    const level = Math.sqrt(data.reduce((a, x) => a + x * x, 0) / data.length)
+    const now = Date.now()
+    listenBars.forEach((b, i) => (b.style.transform = `scaleY(${Math.min(1, 0.15 + level * 14 * (0.6 + 0.4 * Math.sin(i * 1.7 + now / 90)))})`))
+    if (level > 0.015) {
+      heard = true
+      quietSince = now
+    }
+    // Stop by itself after a pause once something was said, or at the latest after 20 s.
+    if ((heard && now - quietSince > 1500) || now - started > 20_000) finish()
+  }
+  source.connect(node)
+  node.connect(ctx.destination)
+  setListening(true, tr('voice.listening'))
+
+  const finish = async (send = true) => {
+    if (stopListening !== finish) return
+    stopListening = null
+    node.disconnect()
+    source.disconnect()
+    stream.getTracks().forEach(t => t.stop())
+    void ctx.close()
+    if (!send) return setListening(false)
+    const samples = new Float32Array(chunks.reduce((n, c) => n + c.length, 0))
+    chunks.reduce((at, c) => (samples.set(c, at), at + c.length), 0)
+    setListening(false, tr('voice.transcribing'))
+    balloonUntil = Date.now() + 120_000
+    const r = await api.transcribe(encodeWav(samples, ctx.sampleRate))
+    setListening(false)
+    if (!isChatting) openChat()
+    if ('error' in r) addBubble('pet', r.error)
+    else if (!r.text) addBubble('pet', tr('voice.heardNothing'))
+    else sendChat(r.text)
+  }
+  stopListening = finish
+}
+
+chatMic.addEventListener('click', e => (e.stopPropagation(), toggleListening()))
 
 /** An action waiting for the user's OK, shown inside the chat with three answers. */
 function askConfirm(id: string, text: string) {
@@ -409,6 +500,7 @@ api.onCommand((cmd: PetCommand) => {
   else if (cmd.type === 'menu') openMenu()
   else if (cmd.type === 'ai') onAi(cmd.event, cmd.text)
   else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text)
+  else if (cmd.type === 'listen') toggleListening()
 })
 
 api.getState().then((s: State) => {

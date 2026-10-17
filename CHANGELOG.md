@@ -2,6 +2,12 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+- Talk by voice: a global push-to-talk shortcut (`Ctrl+Shift+Space`, changeable in Settings) starts listening and a pause ends it. Speech is turned into text on the computer with whisper.cpp, found on `PATH` or picked in Settings, in Turkish or English; the text goes into the chat like a typed message and the answer is read aloud.
+- A microphone button in the chat and a listening indicator with a level wave, in the modern and the classic balloon.
+
 ## 0.3.0 (2026-10-17)
 
 ### Added

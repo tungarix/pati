@@ -36,8 +36,12 @@ hatırlatıcılar; karakter paketleri; ayarlar penceresi; Windows kurulum dosyas
 
 ### v0.4: sesle konuşma
 JARVIS hissini tamamlayan adım.
-- Uyandırma: kısayol tuşu (bas-konuş) ile başla; isteğe bağlı uyandırma kelimesi ("Hey Atlas").
-- Konuşmayı yazıya çevirme yerelde: whisper.cpp. Bilgisayarda yoksa indirme rehberi.
+- ✅ Bas-konuş: genel kısayol (`Ctrl+Shift+Space`, ayarlardan değişir); susunca dinleme kendiliğinden biter.
+  Mikrofon 16 kHz mono WAV olarak kaydedilir; balonda mikrofon ve dalga göstergesi (modern ve klasik).
+- ✅ Konuşmayı yazıya çevirme yerelde: whisper.cpp (`whisper-cli.exe` `PATH`'te ve model yanındaki `models`'ta
+  kendiliğinden bulunur, yoksa ayarlardan seçilir; README'de indirme rehberi). Türkçe ve İngilizce.
+  Çıkan metin yazılmış gibi sohbete (açık komutlar dahil) gider, cevap sesli okunur.
+- Sıradaki adım: uyandırma kelimesi ("Hey Atlas").
 - Sesli cevap: kayıt yoksa yerel nöral TTS (Piper, Türkçe sesi var), o da yoksa Windows sesi.
 - Ses paketleri: karakterin kayıtlı sesleri (selam, onay, uyarı) + `manifest.json`.
 - Konuşurken ağız animasyonu sesle eşleşir.

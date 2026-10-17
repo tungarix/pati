@@ -25,3 +25,8 @@ test('a v0.2 single server becomes the first of the list, keeping its key', () =
   assert.deepEqual(s.ai.servers, [{ baseUrl: 'http://localhost:8081/v1', apiKey: 'local', model: '' }])
   assert.equal(s.ai.memory, true)
 })
+
+test('settings from before voice get the voice defaults', () => {
+  const s = loadSettings(write({ language: 'tr' }), 'tr')
+  assert.deepEqual(s.voice, { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' })
+})

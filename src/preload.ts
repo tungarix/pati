@@ -28,6 +28,8 @@ const api = {
   brainOpen: (): Promise<'obsidian' | 'folder'> => ipcRenderer.invoke('brain-open'),
   brainChoose: () => ipcRenderer.invoke('brain-choose'),
   focusPet: () => ipcRenderer.send('focus-pet'),
+  transcribe: (wav: ArrayBuffer): Promise<{ text: string } | { error: string }> => ipcRenderer.invoke('voice-transcribe', wav),
+  voiceChoose: (which: 'whisper' | 'model') => ipcRenderer.invoke('voice-choose', which),
   confirmReply: (id: string, answer: 'yes' | 'always' | 'no') => ipcRenderer.send('confirm-reply', id, answer),
 }
 

@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // No servers yet: the first chat looks for one on the usual local ports.
   ai: { enabled: true, servers: [], memory: true, tools: { clipboard: false, web: false, actions: true }, allowedActions: [], brainDir: '' },
   proactive: { enabled: true, briefing: true, lateNight: true, breaks: true },
+  voice: { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' },
   sleepAfterSeconds: 120,
   wander: true,
   openAtLogin: false,
@@ -53,6 +54,7 @@ export function loadSettings(file: string, firstRunLang: Lang): Settings {
       tips: { ...DEFAULT_SETTINGS.tips, ...saved.tips },
       ai: migrateAi(saved.ai),
       proactive: { ...DEFAULT_SETTINGS.proactive, ...saved.proactive },
+      voice: { ...DEFAULT_SETTINGS.voice, ...saved.voice },
       reminders: Array.isArray(saved.reminders) ? saved.reminders : DEFAULT_SETTINGS.reminders,
     }
   } catch {

@@ -108,6 +108,8 @@ export interface Settings {
     /** The brain folder (chats, summaries, Memory.md); empty = Documents/Pati Beyni. */
     brainDir: string
   }
+  /** Talking by voice: a global shortcut starts listening, whisper.cpp writes it down; empty paths = found on their own. */
+  voice: { enabled: boolean; shortcut: string; whisperPath: string; modelPath: string }
   /** Speaking unasked: morning briefing, a late-night word, break nudges. */
   proactive: { enabled: boolean; briefing: boolean; lateNight: boolean; breaks: boolean }
   sleepAfterSeconds: number
@@ -127,3 +129,5 @@ export type PetCommand =
   | { type: 'ai'; event: 'error'; text: string }
   | { type: 'ai'; event: 'needKey'; text: string }
   | { type: 'confirm'; id: string; text: string }
+  /** The push-to-talk shortcut was pressed: start listening, or stop if already listening. */
+  | { type: 'listen' }

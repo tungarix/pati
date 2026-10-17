@@ -20,6 +20,7 @@ interface State {
   problems: { id: string; reason: string }[]
   facts: Fact[]
   brainDir: string
+  voice: { whisper: string | null; model: string | null; shortcutOk: boolean }
 }
 
 const api = window.pati
@@ -325,6 +326,21 @@ $('memory-clear').addEventListener('click', () => {
   if (confirm(tr('settings.memoryClearConfirm'))) api.memoryClear()
 })
 
+// ---- Talking by voice -------------------------------------------------------------
+
+function renderVoice(found: State['voice']) {
+  $('voice-whisper').textContent = found.whisper ?? `(${tr('settings.voiceMissing')})`
+  $('voice-model').textContent = found.model ?? `(${tr('settings.voiceMissing')})`
+  $('voice-shortcut-status').textContent = tr(found.shortcutOk ? 'settings.voiceShortcutHelp' : 'settings.voiceShortcutTaken')
+  $<HTMLButtonElement>('voice-whisper-auto').disabled = !settings.voice.whisperPath
+  $<HTMLButtonElement>('voice-model-auto').disabled = !settings.voice.modelPath
+}
+
+$('voice-whisper-choose').addEventListener('click', async () => apply((await api.voiceChoose('whisper')) as State))
+$('voice-model-choose').addEventListener('click', async () => apply((await api.voiceChoose('model')) as State))
+$('voice-whisper-auto').addEventListener('click', () => ((settings.voice.whisperPath = ''), save()))
+$('voice-model-auto').addEventListener('click', () => ((settings.voice.modelPath = ''), save()))
+
 // ---- Wiring -------------------------------------------------------------------
 
 function apply(state: State) {
@@ -372,6 +388,14 @@ function apply(state: State) {
     settings.speech.voiceName = (e.target as HTMLSelectElement).value || null
     save()
   }
+  bindCheck('voice-enabled', () => settings.voice.enabled, v => (settings.voice.enabled = v))
+  const shortcut = $<HTMLInputElement>('voice-shortcut')
+  shortcut.value = settings.voice.shortcut
+  shortcut.onchange = () => {
+    settings.voice.shortcut = shortcut.value.trim()
+    save()
+  }
+  renderVoice(state.voice)
   bindCheck('wander', () => settings.wander, v => (settings.wander = v))
   bindCheck('tips-enabled', () => settings.tips.enabled, v => (settings.tips.enabled = v))
   bindCheck('pro-enabled', () => settings.proactive.enabled, v => (settings.proactive.enabled = v))
@@ -392,6 +416,7 @@ api.getState().then(s => apply(s as State))
 api.onState(s => {
   const next = s as State
   const isEcho = JSON.stringify(next.settings) === JSON.stringify(settings) && JSON.stringify(next.facts) === JSON.stringify(lastState?.facts)
-  if (isEcho) lastState = next
+  // The echo still carries fresh whisper and shortcut status.
+  if (isEcho) (lastState = next), renderVoice(next.voice)
   else apply(next)
 })

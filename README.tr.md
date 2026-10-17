@@ -9,6 +9,7 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 - **Yerel yapay zekâyla sohbet eder.** Bilgisayarında çalışan [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) ya da [LM Studio](https://lmstudio.ai)'ya bağlanır. Her karakterin kendi kişiliği var.
 - **Seni hatırlar.** Bir *beyni* var: günlük sohbetlerin, her günün özeti ve senin paylaştığın bilgiler, düz Markdown dosyaları olarak bir klasörde durur. [Obsidian](https://obsidian.md)'da açıp ne bildiğini düzenleyebilirsin.
 - **İş görür.** "Spotify'ı aç", "sesi kıs", "not al: …", "pil kaç?". Bir şey yapmadan önce sorar; "her zaman" diyebilirsin.
+- **Sesle konuşur.** Kısayola bas (varsayılan `Ctrl+Shift+Space`), konuş; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) sesini bilgisayarında yazıya çevirir, cevabı balonda görür ve sesli dinlersin.
 - **Gerektiğinde kendisi konuşur.** Sabah bilgisayar başına oturunca kısa bir brifing, 90 dakika ara vermezsen mola hatırlatması, gece çok geç olunca bir uyarı.
 - **Hatırlatıcılar.** "Her 60 dakikada su iç", "her gün 17:00'de ders" ya da sohbette söyle: "20 dakika sonra hatırlat".
 - **Senin olsun.** Bir klasör PNG kare ve tek bir JSON dosyasıyla kendi karakterini ekle. Türkçe ve İngilizce, modern ya da klasik görünüm.
@@ -35,6 +36,14 @@ Pati, bilgisayarındaki OpenAI uyumlu her sunucuyla konuşur. Yaygın portlara (
 - **llama.cpp:** `llama-server -m model.gguf --jinja`. Araçlar için `--jinja` gerekir. `--api-key` ile başlattıysan Pati ilk seferde anahtarı sohbet balonunda sorar.
 - **Ollama:** Kur ve `ollama pull` ile bir model indir; Pati onu 11434 portunda bulur.
 - **LM Studio:** Bir model yükle ve yerel sunucuyu başlat.
+
+## Sesle konuşma
+
+Ses bilgisayarından çıkmaz: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) ile yerelde yazıya çevrilir.
+Sürümlerden `whisper-cli.exe`'yi indir, yanına `models` klasöründe çok dilli bir model koy (`ggml-small.bin` iyi bir
+başlangıç; `.en` ile bitenler Türkçe bilmez). Pati `whisper-cli.exe`'yi `PATH`'te, modeli de onun yanındaki ya da bir
+üstündeki `models` klasöründe kendisi bulur; bulamazsa **Ayarlar > Sesle konuşma**'dan ikisini de seç. Kısayolu da oradan
+değiştirebilirsin. Bas, konuş; susunca Pati dinlemeyi kendisi bitirir (ya da kısayola bir daha bas).
 
 8 GB ekran kartında 8-9 milyar parametrelik bir model iyi bir başlangıç. Pati küçük modellerin alışkanlıklarına göre çalışır: açık komutları modelin araç çağırmasına bırakmadan kendisi yapar, pil ve saat gibi sayıları modelin tahminine bırakmaz, ölçer.
 

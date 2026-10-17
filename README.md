@@ -9,6 +9,7 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 - **Chats with a local AI.** Connects to [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) running on your machine. Each character has its own personality.
 - **Remembers you.** It keeps a *brain*: a folder of plain Markdown with your daily chats, a summary of each day and the facts you shared. Open it in [Obsidian](https://obsidian.md) and edit what it knows.
 - **Gets things done.** "Open Spotify", "turn the volume down", "take a note: …", "how's my battery?". It asks before acting, and you can say "always".
+- **Talks by voice.** Press the shortcut (`Ctrl+Shift+Space` by default) and speak; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) turns it into text on your computer, and you see and hear the answer.
 - **Speaks up when it matters.** A short briefing when you sit down in the morning, a nudge after 90 minutes without a break, a word when it is very late.
 - **Reminders.** "Every 60 minutes, drink water", "every day at 17:00, study", or just tell it in chat: "remind me in 20 minutes".
 - **Make it yours.** Add your own character with a folder of PNG frames and one JSON file. Turkish and English, modern or classic look.
@@ -35,6 +36,14 @@ Pati talks to any OpenAI-compatible server on your computer. It looks on the usu
 - **llama.cpp:** `llama-server -m model.gguf --jinja`. `--jinja` enables tools. If you start it with `--api-key`, Pati asks for the key in the chat balloon the first time.
 - **Ollama:** install it and `ollama pull` a model; Pati finds it on port 11434.
 - **LM Studio:** load a model and start the local server.
+
+## Talk by voice
+
+Your voice never leaves your computer: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) turns it into text locally.
+Download `whisper-cli.exe` from its releases and put a multilingual model in a `models` folder next to it (`ggml-small.bin`
+is a good start; models ending in `.en` only know English). Pati finds `whisper-cli.exe` on `PATH` and the model in a
+`models` folder beside or above it; if it can't, pick both in **Settings > Talking by voice**, where you can also change
+the shortcut. Press, speak; Pati stops listening when you pause (or press the shortcut again).
 
 A model of about 8-9B parameters is a good start on an 8 GB GPU. Pati works around the habits of small models: it handles plain commands itself instead of trusting the model to call a tool, and checks numbers (battery, time) instead of letting the model guess.
 

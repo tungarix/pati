@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
 
 import { detectLang, t } from '../shared/i18n.ts'
 import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
@@ -18,6 +18,7 @@ import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type 
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
 import { matchIntent, type Intent } from './intents.ts'
 import { runTool, toolDefinitions, type ToolContext } from './tools.ts'
+import { findModel, findWhisper, transcribe } from './voice.ts'
 
 const PET_W = 340
 const PET_H = 460
@@ -61,7 +62,7 @@ function broadcastState(): void {
 }
 
 function stateForWindows() {
-  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir() }
+  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus() }
 }
 
 // ---- The pet window ---------------------------------------------------------
@@ -184,6 +185,7 @@ function applySettings(next: Settings): void {
   settings = next
   saveSettings(SETTINGS_FILE, settings)
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings.openAtLogin })
+  registerShortcut()
   broadcastState()
 }
 
@@ -655,6 +657,55 @@ ipcMain.handle('brain-choose', async () => {
 // Typing into the balloon needs keyboard focus, which an inactive pet window lacks.
 ipcMain.on('focus-pet', () => pet?.focus())
 
+// ---- Talking by voice ------------------------------------------------------------
+
+let shortcutOk = true
+let registeredShortcut = ''
+
+/** (Re)binds the push-to-talk shortcut; a key another app holds leaves `shortcutOk` false for the settings window. */
+function registerShortcut(): void {
+  const want = settings.voice.enabled ? settings.voice.shortcut.trim() : ''
+  if (want === registeredShortcut) return
+  if (registeredShortcut) globalShortcut.unregister(registeredShortcut)
+  registeredShortcut = ''
+  shortcutOk = true
+  if (!want) return
+  try {
+    shortcutOk = globalShortcut.register(want, () => {
+      if (!pet) createPet()
+      pet?.showInactive()
+      send({ type: 'listen' })
+    })
+  } catch {
+    shortcutOk = false // not a valid accelerator
+  }
+  if (shortcutOk) registeredShortcut = want
+}
+
+function voiceStatus() {
+  const whisper = findWhisper(settings.voice.whisperPath)
+  return { whisper, model: findModel(settings.voice.modelPath, whisper), shortcutOk }
+}
+
+ipcMain.handle('voice-transcribe', async (_e, wav: ArrayBuffer): Promise<{ text: string } | { error: string }> => {
+  const lang = settings.language
+  const { whisper, model } = voiceStatus()
+  if (!whisper || !model) return { error: t(lang, whisper ? 'voice.noModel' : 'voice.noWhisper') }
+  try {
+    return { text: await transcribe(whisper, model, Buffer.from(wav), lang) }
+  } catch (err) {
+    console.error('whisper failed:', err)
+    return { error: t(lang, 'voice.failed') }
+  }
+})
+ipcMain.handle('voice-choose', async (_e, which: 'whisper' | 'model') => {
+  const filters = which === 'whisper' ? [{ name: 'whisper-cli', extensions: ['exe'] }] : [{ name: 'ggml', extensions: ['bin'] }]
+  const r = await dialog.showOpenDialog({ properties: ['openFile'], filters })
+  if (!r.canceled && r.filePaths[0])
+    applySettings({ ...settings, voice: { ...settings.voice, [which === 'whisper' ? 'whisperPath' : 'modelPath']: r.filePaths[0] } })
+  return stateForWindows()
+})
+
 // ---- IPC --------------------------------------------------------------------
 
 ipcMain.handle('get-state', () => stateForWindows())
@@ -730,9 +781,11 @@ if (!app.requestSingleInstanceLock()) {
     }
     createPet()
     rebuildTray()
+    registerShortcut()
     startTimers()
   })
 
   // The pet lives in the tray: closing the settings window must not quit.
   app.on('window-all-closed', () => {})
+  app.on('will-quit', () => globalShortcut.unregisterAll())
 }
