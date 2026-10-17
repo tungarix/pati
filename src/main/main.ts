@@ -16,6 +16,8 @@ import { dueReminders, type FiredLog } from './reminders.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
+import { physicsStep, throwVelocity, type Body, type Rect } from './physics.ts'
+import { watchWindows } from './windows.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
 import { matchFocus, matchIntent, matchScreen, type Intent } from './intents.ts'
 import { runTool, toolDefinitions, type ToolContext } from './tools.ts'
@@ -259,6 +261,78 @@ function startTimers(): void {
     if (due.some(r => r.kind === 'once'))
       applySettings({ ...settings, reminders: settings.reminders.filter(r => !(r.kind === 'once' && fired[r.id])) })
   }, 15_000)
+}
+
+// ---- Physics: falling, standing on windows, being thrown ------------------------------
+
+let windowRects: Rect[] = []
+/** Set while the pet is in the air; standing, its position is simply the window's. */
+let body: Body | null = null
+let dragSamples: { t: number; x: number; y: number }[] = []
+let stopWindowWatch: (() => void) | null = null
+let shown = { airborne: false, tilt: 0, stretch: 0 }
+/** Walking: px still to go (the renderer asks 10 times a second), the speed, and the sub-pixel carry. */
+const walk = { pending: 0, rate: 0, carry: 0 }
+
+/** The pet's feet: bottom centre of its window. */
+function feet(): { x: number; y: number } {
+  const [x, y] = pet!.getPosition()
+  return { x: x + petW() / 2, y: y + petH() }
+}
+
+/**
+ * Tells the pet window how it moves: in the air or not, the lean it should swing
+ * towards (degrees), how much a fast fall stretches it, and how hard it just hit a floor.
+ */
+function showFlight(airborne: boolean, lean: number, stretch = 0, impact = 0): void {
+  const tilt = Math.round(Math.max(-30, Math.min(30, lean)))
+  stretch = Math.round(stretch * 100) / 100
+  if (!impact && airborne === shown.airborne && Math.abs(tilt - shown.tilt) < 2 && Math.abs(stretch - shown.stretch) < 0.02) return
+  shown = { airborne, tilt, stretch }
+  send({ type: 'physics', airborne, tilt, stretch, impact })
+}
+
+function startPhysics(): void {
+  if (process.platform === 'win32')
+    stopWindowWatch = watchWindows(list => {
+      windowRects = list.map(([l, t, r, b]) => {
+        const d = screen.screenToDipRect(null, { x: l, y: t, width: r - l, height: b - t })
+        return { left: d.x, top: d.y, right: d.x + d.width, bottom: d.y + d.height }
+      })
+    })
+  let last = Date.now()
+  setInterval(() => {
+    const now = Date.now()
+    const dt = Math.min(0.05, (now - last) / 1000)
+    last = now
+    if (!pet || dragTimer || !pet.isVisible()) return
+    // Glide the window along the walk every frame instead of jumping 10 times a second.
+    if (walk.pending) {
+      const move = Math.sign(walk.pending) * Math.min(Math.abs(walk.pending), walk.rate * dt)
+      walk.pending -= move
+      walk.carry += move
+      const whole = Math.trunc(walk.carry)
+      if (whole) {
+        walk.carry -= whole
+        const [wx, wy] = pet.getPosition()
+        pet.setPosition(wx + whole, wy)
+      }
+    }
+    if (!settings.physics) return void ((body = null), showFlight(false, 0))
+    const wa = screen.getDisplayMatching(pet.getBounds()).workArea
+    // Walls a little inside the edges: the window is wider than the character.
+    const area = { left: wa.x + 40, top: wa.y, right: wa.x + wa.width - 40, bottom: wa.y + wa.height }
+    const r = physicsStep(body ?? { ...feet(), vx: 0, vy: 0, airborne: false }, dt, windowRects, area)
+    body = r.body.airborne ? r.body : null
+    const [wx, wy] = pet.getPosition()
+    const nx = Math.round(r.body.x - petW() / 2)
+    const ny = Math.round(r.body.y - petH())
+    if (nx !== wx || ny !== wy) pet.setPosition(nx, ny)
+    const { airborne, vx, vy } = r.body
+    // Leans into a throw, stretches in a fast fall.
+    showFlight(airborne, airborne ? vx / 70 : 0, airborne ? Math.min(0.12, (Math.abs(vy) / 1900) * 0.12) : 0, r.impact)
+    if (r.landed) savePosition()
+  }, 16)
 }
 
 // ---- AI chat ----------------------------------------------------------------
@@ -827,26 +901,39 @@ ipcMain.on('set-interactive', (_e, isInteractive: boolean) => {
 
 ipcMain.on('drag-start', (_e, offset: { x: number; y: number }) => {
   if (!pet || dragTimer) return
+  body = null
+  dragSamples = []
   // Follow the cursor from here: pointer events stop once it leaves the small window.
   dragTimer = setInterval(() => {
     const p = screen.getCursorScreenPoint()
+    dragSamples.push({ t: Date.now(), x: p.x, y: p.y })
+    if (dragSamples.length > 12) dragSamples.shift()
     pet?.setPosition(Math.round(p.x - offset.x), Math.round(p.y - offset.y))
+    // Held by the scruff it swings behind the cursor like a pendulum.
+    showFlight(false, throwVelocity(dragSamples).vx / 40)
   }, 16)
 })
 
 ipcMain.on('drag-end', () => {
   if (dragTimer) clearInterval(dragTimer)
   dragTimer = null
+  // Let go: it flies on with the cursor's last speed and falls.
+  walk.pending = 0
+  if (pet && settings.physics) body = { ...feet(), ...throwVelocity(dragSamples), airborne: true }
   savePosition()
 })
 
 ipcMain.handle('move-by', (_e, dx: number) => {
   if (!pet) return { atEdge: true }
+  if (body) return { atEdge: false } // no walking in mid-air
   const [x, y] = pet.getPosition()
-  const area = screen.getDisplayNearestPoint({ x: x + petW() / 2, y: y + petH() / 2 }).workArea
-  const nx = Math.max(area.x - petW() / 4, Math.min(area.x + area.width - (petW() * 3) / 4, x + dx))
-  pet.setPosition(Math.round(nx), y)
-  return { atEdge: nx !== x + dx }
+  // Where the walk is heading: the window may still be on its way from the last step.
+  const from = x + walk.pending
+  const area = screen.getDisplayNearestPoint({ x: from + petW() / 2, y: y + petH() / 2 }).workArea
+  const to = Math.max(area.x - petW() / 4, Math.min(area.x + area.width - (petW() * 3) / 4, from + dx))
+  walk.pending += to - from
+  walk.rate = Math.abs(walk.pending) * 10 // arrive by the next step, 100 ms from now
+  return { atEdge: to !== from + dx, moved: to - from }
 })
 
 ipcMain.on('walk-ended', savePosition)
@@ -894,9 +981,10 @@ if (!app.requestSingleInstanceLock()) {
     rebuildTray()
     registerShortcut()
     startTimers()
+    startPhysics()
   })
 
   // The pet lives in the tray: closing the settings window must not quit.
   app.on('window-all-closed', () => {})
-  app.on('will-quit', () => globalShortcut.unregisterAll())
+  app.on('will-quit', () => (globalShortcut.unregisterAll(), stopWindowWatch?.()))
 }

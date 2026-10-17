@@ -1,10 +1,13 @@
 // Shapes shared by the main process, the preload bridge and the windows.
 
-export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk'
+/** Optional like the rest: `fall` (in the air; else `drag`), `dust` (after a landing), `guitar` (now and then when idle). */
+export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fall' | 'dust' | 'guitar'
 
 export interface Animation {
   frames: string[]
   fps: number
+  /** Walk only: one step's length in frame pixels; frames then advance with the distance walked, so feet do not slide. */
+  stride?: number
 }
 
 export type Lang = 'tr' | 'en'
@@ -116,6 +119,8 @@ export interface Settings {
   proactive: { enabled: boolean; briefing: boolean; lateNight: boolean; breaks: boolean }
   sleepAfterSeconds: number
   wander: boolean
+  /** Shimeji physics: falls onto the taskbar and window edges, can be thrown. */
+  physics: boolean
   openAtLogin: boolean
   reminders: Reminder[]
   position: { x: number; y: number } | null
@@ -134,3 +139,5 @@ export type PetCommand =
   | { type: 'confirm'; id: string; text: string }
   /** The push-to-talk shortcut was pressed: start listening, or stop if already listening. */
   | { type: 'listen' }
+  /** How the body moves: in the air (no walking, falling pose), the lean to swing towards (degrees), stretch of a fast fall, speed it just hit a floor with. */
+  | { type: 'physics'; airborne: boolean; tilt: number; stretch: number; impact: number }

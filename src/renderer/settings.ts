@@ -398,6 +398,7 @@ function apply(state: State) {
   }
   renderVoice(state.voice)
   bindCheck('wander', () => settings.wander, v => (settings.wander = v))
+  bindCheck('physics', () => settings.physics, v => (settings.physics = v))
   bindCheck('tips-enabled', () => settings.tips.enabled, v => (settings.tips.enabled = v))
   bindCheck('pro-enabled', () => settings.proactive.enabled, v => (settings.proactive.enabled = v))
   bindCheck('pro-briefing', () => settings.proactive.briefing, v => (settings.proactive.briefing = v))

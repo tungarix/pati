@@ -36,7 +36,8 @@ export interface Step {
 
 /** Chance per tick (100 ms) that an idle pet starts a stroll: about one every 17 s. */
 export const WANDER_CHANCE = 0.006
-export const WALK_SPEED = 3
+/** px per tick at 100% size: 50 px/s, an unhurried stroll. */
+export const WALK_SPEED = 5
 export const WALK_MIN = 60
 export const WALK_MAX = 220
 

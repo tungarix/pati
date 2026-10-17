@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { INITIAL, step, type Inputs } from '../src/core/behavior.ts'
+import { INITIAL, step, WALK_SPEED, type Inputs } from '../src/core/behavior.ts'
 
 const base: Inputs = {
   userIdleSeconds: 0,
@@ -31,8 +31,8 @@ test('a lucky roll starts a walk in the rolled direction and moves', () => {
   const r = step(INITIAL, { ...base, random: seq(0, 0.1, 0.5) })
   assert.equal(r.state.mode, 'walk')
   assert.equal(r.state.facing, -1)
-  assert.equal(r.moveBy, -3)
-  assert.equal(r.state.walk?.remaining, 137)
+  assert.equal(r.moveBy, -WALK_SPEED)
+  assert.equal(r.state.walk?.remaining, 140 - WALK_SPEED)
 })
 
 test('a walk ends at its distance or at the screen edge', () => {

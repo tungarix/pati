@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   voice: { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' },
   sleepAfterSeconds: 120,
   wander: true,
+  physics: true,
   openAtLogin: false,
   reminders: [
     { id: 'su', text: 'Su içmeyi unutma!', enabled: true, kind: 'interval', minutes: 60 },

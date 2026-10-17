@@ -163,5 +163,6 @@
   "confirm.screen": "Shall I take a screenshot and show it to the model? It is not saved anywhere.",
   "screen.noVision": "I could not find a model that can see. You need a vision model: start one like Qwen2.5-VL or Gemma 3 in llama.cpp with its --mmproj file, or pull qwen2.5vl in Ollama.",
   "menu.look": "Look at my screen",
-  "menu.lookAsk": "Look at my screen: what do you see? Keep it short."
+  "menu.lookAsk": "Look at my screen: what do you see? Keep it short.",
+  "settings.physics": "Fall onto windows, and can be thrown"
 }

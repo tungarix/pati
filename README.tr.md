@@ -5,7 +5,7 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 
 [English](README.md)
 
-- **Masaüstünde yaşar.** Her pencerenin üstünde duran küçük bir karakter. İstediğin yere sürükle, çift tıklayınca zıplasın; kendi kendine dolaşır, sen uzaklaşınca uyur.
+- **Masaüstünde yaşar.** Her pencerenin üstünde duran küçük bir karakter. Görev çubuğunda ve pencerelerin üst kenarında durur, kenardan yürüyüp düşer; istediğin yere sürükle ya da ekranın öbür ucuna fırlat. Kendi kendine dolaşır, sen uzaklaşınca uyur.
 - **Yerel yapay zekâyla sohbet eder.** Bilgisayarında çalışan [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) ya da [LM Studio](https://lmstudio.ai)'ya bağlanır. Her karakterin kendi kişiliği var.
 - **Seni hatırlar.** Bir *beyni* var: günlük sohbetlerin, her günün özeti ve senin paylaştığın bilgiler, düz Markdown dosyaları olarak bir klasörde durur. [Obsidian](https://obsidian.md)'da açıp ne bildiğini düzenleyebilirsin.
 - **İş görür.** "Spotify'ı aç", "sesi kıs", "not al: …", "pil kaç?". Bir şey yapmadan önce sorar; "her zaman" diyebilirsin.
@@ -97,7 +97,9 @@ characters/
     "walk":  { "frames": ["yuru1.png", "yuru2.png"], "fps": 4 },
     "talk":  { "frames": ["konus.png", "dur.png"], "fps": 6 },
     "sleep": { "frames": ["uyu.png"], "fps": 1 },
-    "drag":  { "frames": ["tutuldu.png"], "fps": 1 }
+    "drag":  { "frames": ["tutuldu.png"], "fps": 1 },
+    "fall":  { "frames": ["dusus.png"], "fps": 1 },
+    "dust":  { "frames": ["silkin1.png", "silkin2.png"], "fps": 6 }
   },
   "voice": { "lang": "tr-TR", "rate": 1, "pitch": 1.2 },
   "persona": "Sen Benim Kedim'sin: kullanıcının masaüstünde yaşayan uykucu ama meraklı bir kedi.",
@@ -116,13 +118,13 @@ characters/
 }
 ```
 
-- Zorunlu olan yalnızca `animations.idle` (ve bir ad). Eksik animasyonun yerine `idle` oynar, eksik repliklerin yerine varsayılanlar gelir.
+- Zorunlu olan yalnızca `animations.idle` (ve bir ad). `fall` havadayken (yoksa `drag`), `dust` yere indikten sonra bir kez, `guitar` boşta dururken arada bir oynar. `walk`'a `stride` (bir adımın kare pikseli cinsinden uzunluğu) verirsen kareler yürünen mesafeyle ilerler, ayaklar kaymaz. Eksik animasyonun yerine `idle` oynar, eksik repliklerin yerine varsayılanlar gelir.
 - `lines`, `language`'deki tek bir set ya da dil başına ayrı setler olabilir: `{ "tr": {...}, "en": {...} }`. `persona` da aynı şekilde çalışır; sohbette karaktere sesini veren sistem talimatıdır.
 - `scale`, piksel sanatını keskin kenarlarla büyütür; çizim tarzı görseller için `1` bırak. Karakter ~150 pikseli geçmesin.
 - `accent`, modern balonun rengidir.
 - Yerleşik bir paketle aynı kimliğe sahip paket onun yerine geçer.
 
-Yerleşik karakterler `scripts/make-tungarix.py` (elle çizilmiş piksel ızgarası) ve `scripts/make-atlas.py` (geometriyle çizim) ile üretilir; ikisini de şablon olarak kullanabilirsin.
+Tungarix'in kareleri tek bir çizilmiş sprite sheet'ten (`art/tungarix-sheet.webp`) `scripts/slice-tungarix.py` ile kesilir: arka planı siler, pozları bulur ve her kareyi ayaklar aynı çizgide olacak şekilde aynı tuvale koyar; aynı düzende her sheet için çalışır. Atlas `scripts/make-atlas.py` ile geometriden çizilir.
 
 ## Geliştirme
 

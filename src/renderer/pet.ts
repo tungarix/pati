@@ -24,6 +24,7 @@ const balloon = document.getElementById('balloon') as HTMLDivElement
 const balloonText = document.getElementById('balloon-text') as HTMLParagraphElement
 const balloonButtons = document.getElementById('balloon-buttons') as HTMLDivElement
 const zzz = document.getElementById('zzz') as HTMLDivElement
+const shadow = document.getElementById('shadow') as HTMLDivElement
 const chatForm = document.getElementById('chat-form') as HTMLFormElement
 const chatInput = document.getElementById('chat-input') as HTMLInputElement
 const chatSend = document.getElementById('chat-send') as HTMLButtonElement
@@ -38,12 +39,21 @@ const chatMic = document.getElementById('chat-mic') as HTMLButtonElement
 let settings: Settings
 let character: Character
 let anim: AnimationName = 'idle'
+/** When the current animation started (ms, performance clock), for motion in step with its frames. */
+let animStart = 0
+/** Distance walked (px); walk frames follow it. */
+let walkDist = 0
 let frame = 0
-let frameClock = 0
 let userIdleSeconds = 0
 let behavior: BehaviorState = INITIAL
 let hitEdge = false
 let isDragging = false
+/** Falling or flying after a throw (main process physics). */
+let isAirborne = false
+/** Dusting itself off after a landing, until then. */
+let dustUntil = 0
+/** Playing guitar while idle, until then. */
+let guitarUntil = 0
 let isSpeaking = false
 let isChatting = false
 /** The balloon's input is asking for the server's API key instead of a message. */
@@ -66,14 +76,15 @@ const lines = (): CharacterLines => character.lines[settings.language]
 // ---- Drawing -----------------------------------------------------------------
 
 function framesOf(name: AnimationName) {
-  return character.animations[name] ?? character.animations.idle
+  const a = character.animations
+  return a[name] ?? (name === 'fall' ? a.drag : undefined) ?? a.idle
 }
 
 function setAnim(name: AnimationName) {
   if (anim === name) return
   anim = name
+  animStart = performance.now()
   frame = 0
-  frameClock = 0
   drawFrame()
 }
 
@@ -85,6 +96,8 @@ function drawFrame() {
 
 function sizeSprite() {
   const k = character.scale * settings.size
+  // Pixel art scales up with hard edges; drawn frames (scale below 2) stay smooth.
+  sprite.style.imageRendering = character.scale >= 2 ? 'pixelated' : 'auto'
   sprite.style.width = `${sprite.naturalWidth * k}px`
   sprite.style.height = `${sprite.naturalHeight * k}px`
   document.documentElement.style.setProperty('--balloon-bottom', `${sprite.naturalHeight * k + 22}px`)
@@ -258,6 +271,85 @@ function addRating(id: string) {
   thread.append(row)
   thread.scrollTop = thread.scrollHeight
 }
+
+// ---- Motion: life between the frames -----------------------------------------------
+
+/** A damped spring: `value` follows `target` with a little overshoot. */
+interface Spring {
+  value: number
+  v: number
+  target: number
+  k: number
+  damping: number
+}
+const spring = (k: number, damping: number): Spring => ({ value: 0, v: 0, target: 0, k, damping })
+const motion = {
+  /** Lean in degrees: into a throw, behind the cursor while held. Damped, so it settles without wobbling on. */
+  lean: spring(40, 11),
+  /** + stretches tall (fast fall), - squashes wide (landing). Stiff, so it wobbles quickly. */
+  squash: spring(320, 13),
+}
+
+/** The window is gliding `px` further (the main process moves it smoothly). */
+function walked(px: number) {
+  walkDist += Math.abs(px)
+}
+
+function stepSpring(s: Spring, dt: number) {
+  s.v += (-s.k * (s.value - s.target) - s.damping * s.v) * dt
+  s.value += s.v * dt
+}
+
+/**
+ * Every display frame: breathing, steps that bob in time with the walk frames,
+ * swaying to the guitar, swinging and squashing with the physics. Few drawn frames
+ * look alive this way.
+ */
+let lastMotion = performance.now()
+function animateMotion(now: number) {
+  requestAnimationFrame(animateMotion)
+  if (!character) return // state not loaded yet
+  const dt = Math.min(0.05, (now - lastMotion) / 1000)
+  lastMotion = now
+  stepSpring(motion.lean, dt)
+  stepSpring(motion.squash, dt)
+  const t = (now - animStart) / 1000
+  // Frames advance on the display clock, so they stay in step with the motion below;
+  // a walk with a stride advances with the distance walked instead, so the feet stay put.
+  const { frames, fps, stride } = framesOf(anim)
+  const k = character.scale * settings.size
+  const halfSteps = anim === 'walk' && stride ? walkDist / ((stride * k) / 2) : t * fps
+  if (frames.length > 1) {
+    const f = Math.floor(halfSteps) % frames.length
+    if (f !== frame) (frame = f), drawFrame()
+  }
+  const wave = (hz: number, phase = 0) => Math.sin(2 * Math.PI * hz * t + phase)
+  const px = settings.size
+  let bob = 0
+  let rock = 0
+  let breathe = 0
+  if (anim === 'idle') breathe = 0.01 * wave(1 / 3.2)
+  else if (anim === 'sleep') breathe = 0.022 * wave(1 / 4.5)
+  else if (anim === 'walk') {
+    // Up on the passing frames, down on the contact frames (two frames per step).
+    bob = -2 * Math.abs(Math.sin((Math.PI * (halfSteps - 0.5)) / 2))
+    rock = 1 * behavior.facing
+  } else if (anim === 'talk') bob = -1 * Math.abs(wave(2.5))
+  else if (anim === 'guitar') {
+    bob = -1.5 * Math.abs(wave(2))
+    rock = 1.2 * wave(2)
+  } else if (anim === 'fall') rock = 2 * wave(2.5)
+  const s = motion.squash.value + breathe
+  // Held by the scruff it pivots at the top; otherwise at the feet.
+  sprite.style.transformOrigin = anim === 'drag' ? '50% 6%' : '50% 100%'
+  sprite.style.rotate = `${(motion.lean.value + rock).toFixed(2)}deg`
+  sprite.style.scale = `${(1 - s * 0.7).toFixed(4)} ${(1 + s).toFixed(4)}`
+  sprite.style.translate = `0 ${(bob * px).toFixed(2)}px`
+  const grounded = !isAirborne && !isDragging
+  shadow.style.opacity = grounded ? '1' : '0'
+  shadow.style.scale = `${(1 - bob / 20 + Math.max(0, -s)).toFixed(3)} 1`
+}
+requestAnimationFrame(animateMotion)
 
 // ---- Talking by voice -----------------------------------------------------------
 
@@ -474,10 +566,10 @@ async function tickOnce() {
   const r = step(behavior, {
     userIdleSeconds,
     sleepAfterSeconds: settings.sleepAfterSeconds,
-    isDragging,
+    isDragging: isDragging || isAirborne,
     isBalloonOpen: !balloon.hidden,
     isSpeaking,
-    wander: settings.wander && focus.phase !== 'focus',
+    wander: settings.wander && focus.phase !== 'focus' && now >= dustUntil,
     hitEdge,
     random: Math.random,
   })
@@ -491,18 +583,22 @@ async function tickOnce() {
     say(pick(lines().tips), [[lines().thanks, closeBalloon]], 12)
   }
 
-  if (r.moveBy) hitEdge = (await api.moveBy(r.moveBy)).atEdge
-  sprite.classList.toggle('flip', behavior.facing < 0)
-  setAnim(behavior.mode)
-  zzz.hidden = behavior.mode !== 'sleep'
-
-  frameClock += 100
-  const { frames, fps } = framesOf(anim)
-  if (frames.length > 1 && frameClock >= 1000 / fps) {
-    frameClock = 0
-    frame = (frame + 1) % frames.length
-    drawFrame()
+  if (r.moveBy) {
+    // A bigger pet takes bigger steps.
+    const res = await api.moveBy(r.moveBy * settings.size)
+    hitEdge = res.atEdge
+    if (res.moved) walked(res.moved)
   }
+  sprite.classList.toggle('flip', behavior.facing < 0)
+  // The physics poses win over what the behaviour wants; dusting off only while standing still.
+  if (isAirborne && !isDragging) setAnim('fall')
+  else if (now < dustUntil && !isDragging) setAnim(now < dustUntil - (framesOf('dust').frames.length / framesOf('dust').fps) * 1000 ? 'idle' : 'dust')
+  else if (behavior.mode === 'idle' && now < guitarUntil) setAnim('guitar')
+  else setAnim(behavior.mode)
+  // Now and then, standing around with nothing to do, it plays a few bars (about once in 3 minutes).
+  if (behavior.mode === 'idle' && balloon.hidden && character.animations.guitar && now > guitarUntil && Math.random() < 1 / 1800)
+    guitarUntil = now + 6000
+  zzz.hidden = behavior.mode !== 'sleep'
 }
 
 function applyLook() {
@@ -535,6 +631,17 @@ api.onCommand((cmd: PetCommand) => {
     } else say(cmd.text)
   }
   else if (cmd.type === 'menu') openMenu()
+  else if (cmd.type === 'physics') {
+    isAirborne = cmd.airborne
+    motion.lean.target = cmd.tilt
+    motion.squash.target = cmd.stretch
+    if (cmd.impact > 0 && !cmd.airborne && character.animations.dust) {
+      const dust = character.animations.dust
+      dustUntil = Date.now() + 400 + (dust.frames.length / dust.fps) * 1000 // a beat to recover, then dust off
+    }
+    // A hit kicks the squash spring; harder hits squash more, then it wobbles back.
+    if (cmd.impact > 0) motion.squash.v -= 17 * Math.min(0.3, cmd.impact / 4000)
+  }
   else if (cmd.type === 'ai') onAi(cmd.event, cmd.text, cmd.event === 'done' ? cmd.id : undefined)
   else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text)
   else if (cmd.type === 'listen') toggleListening()

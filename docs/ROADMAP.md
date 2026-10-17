@@ -80,6 +80,8 @@ JARVIS hissini tamamlayan adım.
 - Sonra: sürükleyerek bölge seçme, panodaki görsele bakma.
 
 ### v0.7: Shimeji fiziği
+✅ 1-3 ve 6'nın ayarı bitti (`feat/shimeji`): pencere bilgisi `koffi` yerine küçük bir PowerShell yardımcısıyla (derleme ya da yeni bağımlılık yok), `physics.ts` testli, fırlatma. Kalanlar: tırmanma/oturma, yeni animasyonlar, tam ekranda gizlenme.
+
 En büyük iş; ayrı dalda, sırayla:
 1. Pencere bilgisi: `koffi` ile `user32` (`EnumWindows`, `GetWindowRect`, `IsWindowVisible`, gölgesiz kenar
    için `DwmGetWindowAttribute`). Yerel modül derlemesi yok. Saniyede ~10 kez, yalnızca görünür pencereler.

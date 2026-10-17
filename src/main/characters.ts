@@ -93,7 +93,7 @@ export function readCharacterPack(dir: string, isBuiltIn: boolean): Character {
       if (!fs.existsSync(full)) throw new Error(`kare bulunamadı: ${f}`)
       return pathToFileURL(full).href
     })
-    animations[anim] = { frames, fps: spec.fps > 0 ? spec.fps : 2 }
+    animations[anim] = { frames, fps: spec.fps > 0 ? spec.fps : 2, ...(spec.stride && spec.stride > 0 ? { stride: spec.stride } : {}) }
   }
 
   return {
