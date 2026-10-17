@@ -6,8 +6,8 @@ import { matchFocus, matchIntent, matchScreen } from '../src/main/intents.ts'
 const m = (s: string) => matchIntent(s, 'tr')
 
 test('notes are taken with their text', () => {
-  assert.deepEqual(m('Not al: yarın saat 10da Aktenak toplantısı'), { tool: 'take_note', args: { text: 'yarın saat 10da Aktenak toplantısı' } })
-  assert.deepEqual(m('Bunu not et, KAM için yeni boss fikri: Tepegöz'), { tool: 'take_note', args: { text: 'KAM için yeni boss fikri: Tepegöz' } })
+  assert.deepEqual(m('Not al: yarın saat 10da ekip toplantısı'), { tool: 'take_note', args: { text: 'yarın saat 10da ekip toplantısı' } })
+  assert.deepEqual(m('Bunu not et, oyun için yeni boss fikri: Tepegöz'), { tool: 'take_note', args: { text: 'oyun için yeni boss fikri: Tepegöz' } })
   assert.equal(m('not al'), null) // nothing to write yet: let the model ask
 })
 
