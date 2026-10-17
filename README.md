@@ -1,110 +1,135 @@
 # Pati
 
-Masaüstünde yaşayan, konuşan, hatırlatan ve tamamen özelleştirilebilen bir maskot. Clippy ve
-BonziBuddy'nin eğlenceli tarafı; reklam ve casusluk tarafı yok, hiçbir şey internete gitmez.
+**A desktop companion that lives on your screen, talks with a local AI, remembers you, and gets things done.**
+Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and the AI runs on your own computer.
 
-- Masaüstünde her pencerenin üstünde durur, sürükleyip istediğin yere koyarsın.
-- Tıklayınca menü açar: şaka, saat, ipucu, ayarlar, sus, gizle.
-- Konuşma balonuyla konuşur, istersen Windows'un sesiyle sesli okur.
-- Hatırlatıcılar: "her 60 dakikada su iç" ya da "her gün 17:00'de ders".
-- Sen bilgisayar başında değilken uyur, dönünce uyanır.
-- Kendi karakterini PNG kareleriyle ekleyebilirsin.
+[Türkçe](README.tr.md)
 
-## Çalıştırma
+- **Lives on your desktop.** A small character above every window. Drag it anywhere, double-click to make it jump; it wanders around and falls asleep when you step away.
+- **Chats with a local AI.** Connects to [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) running on your machine. Each character has its own personality.
+- **Remembers you.** It keeps a *brain*: a folder of plain Markdown with your daily chats, a summary of each day and the facts you shared. Open it in [Obsidian](https://obsidian.md) and edit what it knows.
+- **Gets things done.** "Open Spotify", "turn the volume down", "take a note: …", "how's my battery?". It asks before acting, and you can say "always".
+- **Speaks up when it matters.** A short briefing when you sit down in the morning, a nudge after 90 minutes without a break, a word when it is very late.
+- **Reminders.** "Every 60 minutes, drink water", "every day at 17:00, study", or just tell it in chat: "remind me in 20 minutes".
+- **Make it yours.** Add your own character with a folder of PNG frames and one JSON file. Turkish and English, modern or classic look.
 
-```bash
-npm install
-npm start
-```
+Built-in characters: **Tungarix**, a rock wolf in sunglasses, and **Atlas**, a calm holographic assistant.
 
-Sağ alttaki tepsi simgesinden ayarlara, karakter seçimine ve çıkışa ulaşırsın.
+## Install
 
-| Hareket | Ne olur |
+Download `Pati Setup x.y.z.exe` from Releases, or build it yourself (below). The installer is not code-signed, so Windows SmartScreen asks "Run anyway".
+
+Pati lives in the system tray: right-click the tray icon for settings, characters and quit.
+
+| Do this | What happens |
 | --- | --- |
-| Tıkla | Menü balonu açılır (açıksa kapanır) |
-| Sürükle | Taşırsın, yeri hatırlanır |
-| Çift tıkla | Zıplar |
-| Sağ tıkla | Ayarlar, karakter, gizle, çıkış |
+| Click the character | Menu: chat, joke, time, tip, settings, quiet for an hour, hide |
+| Drag | Move it; it remembers where |
+| Double-click | It jumps |
+| Right-click | Settings, character, hide, quit |
 
-## Kendi karakterini ekleme
+## Connect a local AI
 
-Ayarlar > Karakter > **Klasörü aç**. Açılan klasöre (`%APPDATA%\pati\characters`) karakterin için bir
-klasör koy, sonra **Yenile**'ye bas. Klasörün adı karakterin kimliğidir.
+Pati talks to any OpenAI-compatible server on your computer. It looks on the usual ports by itself (`8080`, `8081`, `11434`, `1234`); you can also list servers in **Settings > AI**, in order of preference: put a smart, big model on top and a small, fast one below it. Pati uses the first one that is running.
+
+- **llama.cpp:** `llama-server -m model.gguf --jinja`. `--jinja` enables tools. If you start it with `--api-key`, Pati asks for the key in the chat balloon the first time.
+- **Ollama:** install it and `ollama pull` a model; Pati finds it on port 11434.
+- **LM Studio:** load a model and start the local server.
+
+A model of about 8-9B parameters is a good start on an 8 GB GPU. Pati works around the habits of small models: it handles plain commands itself instead of trusting the model to call a tool, and checks numbers (battery, time) instead of letting the model guess.
+
+## The brain
+
+By default `Documents\Pati Beyni`, changeable in settings:
+
+- `Chats/2026-10-17.md`: one note per day of chat. Pati writes a short summary at the top and reads the last few to pick up where you left off.
+- `Memory.md`: what Pati knows about you, one line per fact. Add a line and it learns; delete one and it forgets.
+- `Notes.md`: notes you asked it to take.
+
+Open the folder as a vault in Obsidian once; after that **Settings > Memory > Open in Obsidian** takes you there.
+
+## Privacy
+
+- The AI runs on your computer; chats, memory and notes stay in local files.
+- Tools that reach outside the app are **off** until you turn them on: reading the clipboard, and looking things up online (weather from Open-Meteo, Wikipedia).
+- Actions on the computer (opening apps, websites and folders, music and volume) ask first. Only `http(s)` addresses are ever opened.
+- No telemetry, no accounts, no ads.
+
+## Your own character
+
+**Settings > Character > Open folder** opens `%APPDATA%\pati\characters`. Put a folder there for your character and press **Reload**. The folder name is the character's id.
 
 ```
 characters/
-  benim-kedim/
+  my-cat/
+    manifest.json
     character.json
-    dur.png
-    yuru1.png
-    yuru2.png
-    uyu.png
+    stand.png  walk1.png  walk2.png  sleep.png
+```
+
+`manifest.json`:
+
+```json
+{ "schema": 2, "type": "character", "name": "My Cat", "version": "1.0.0", "author": "You" }
 ```
 
 `character.json`:
 
 ```json
 {
-  "name": "Benim Kedim",
-  "author": "Arda",
+  "language": "en",
   "scale": 4,
+  "accent": "#f59e0b",
   "animations": {
-    "idle":  { "frames": ["dur.png"], "fps": 1 },
-    "walk":  { "frames": ["yuru1.png", "yuru2.png"], "fps": 4 },
-    "talk":  { "frames": ["konus.png", "dur.png"], "fps": 6 },
-    "sleep": { "frames": ["uyu.png"], "fps": 1 },
-    "drag":  { "frames": ["tutuldu.png"], "fps": 1 }
+    "idle":  { "frames": ["stand.png"], "fps": 1 },
+    "walk":  { "frames": ["walk1.png", "walk2.png"], "fps": 4 },
+    "talk":  { "frames": ["talk.png", "stand.png"], "fps": 6 },
+    "sleep": { "frames": ["sleep.png"], "fps": 1 },
+    "drag":  { "frames": ["held.png"], "fps": 1 }
   },
-  "voice": { "lang": "tr-TR", "rate": 1, "pitch": 1.2 },
+  "voice": { "lang": "en-US", "rate": 1, "pitch": 1.2 },
+  "persona": "You are My Cat, a sleepy but curious cat who lives on the user's desktop.",
   "lines": {
-    "greet": ["Miyav! Geldim."],
-    "menu": "Ne yapalım?",
+    "greet": ["Meow! I'm here."],
+    "menu": "What shall we do?",
     "jokes": ["..."],
     "tips": ["..."],
-    "wake": ["Uyandım!"],
-    "sleep": "Biraz uyuyayım…",
-    "thanks": "Sağ ol",
-    "hush": "Tamam, susuyorum."
+    "wake": ["I'm awake!"],
+    "sleep": "Nap time…",
+    "thanks": "Thanks",
+    "hush": "OK, I'll be quiet.",
+    "lateNight": ["It's late. Bed?"],
+    "breakTime": ["Time for a short break."]
   }
 }
 ```
 
-- Zorunlu olanlar yalnızca `name` ve `animations.idle`. Eksik animasyonun yerine `idle` oynar, eksik
-  repliklerin yerine varsayılanlar gelir.
-- `scale`: kareleri kaç kat büyüteceği. Piksel sanatı keskin kenarlarla büyütülür; büyük, çizim
-  tarzı görseller için `1` bırak.
-- Kareler PNG, GIF ya da WebP olabilir, saydam arka plan önerilir. Karakter pencerenin altına
-  ortalanır, en iyi sonuç için ~150 piksel genişliği geçmesin.
-- Aynı kimlikte bir paket, yerleşik paketin yerine geçer: `tungarix` klasörü koyarsan Tungarix'i
-  kendi çizimlerinle değiştirirsin.
+- Only `animations.idle` (and a name) is required. A missing animation falls back to `idle`; missing lines fall back to defaults.
+- `lines` can be one set in `language`, or one per language: `{ "tr": {...}, "en": {...} }`. `persona` works the same way; it is the system prompt that gives the character its voice in chat.
+- `scale` enlarges pixel art with crisp edges; leave it at `1` for drawn images. Keep the character under about 150 px wide.
+- `accent` colours the modern balloon.
+- A pack with the same id as a built-in one replaces it.
 
-Yerleşik Tungarix paketi `scripts/make-tungarix.py` ile piksel ızgaralarından üretilir; kendi
-piksel karakterin için bu script'i şablon olarak kullanabilirsin.
+The built-in characters are generated by `scripts/make-tungarix.py` (a hand-drawn pixel grid) and `scripts/make-atlas.py` (drawn with geometry); use either as a template.
 
-## Geliştirme
+## Development
 
-| Komut | Ne yapar |
+```bash
+npm install
+npm start
+```
+
+| Command | What it does |
 | --- | --- |
-| `npm start` | Derler ve uygulamayı açar |
-| `npm run typecheck` | TypeScript kontrolü |
-| `npm test` | Hatırlatıcı zamanlama testleri |
+| `npm start` | Builds and runs the app |
+| `npm test` | Unit tests (Node's built-in runner) |
+| `npm run typecheck` | TypeScript check |
+| `npm run dist` | Builds the Windows installer into `release/` |
 
-Yapı: `src/main` (pencere, tepsi, hatırlatıcılar, ayarlar), `src/preload.ts` (pencereler ile ana süreç
-arasındaki tek kapı), `src/renderer` (maskot ve ayarlar pencereleri), `characters/` (yerleşik paketler).
+Layout: `src/main` (windows, tray, AI, brain, tools, reminders, settings), `src/core` (behaviour state machine), `src/preload.ts` (the only bridge between windows and the main process), `src/renderer` (pet and settings windows), `characters/` (built-in packs), `locales/` (Turkish and English).
 
-## Kurulum dosyası üretme
+Plans: [docs/ROADMAP.md](docs/ROADMAP.md). Changes: [CHANGELOG.md](CHANGELOG.md).
 
-```
-npm run dist
-```
+## License
 
-`release/Pati Setup <sürüm>.exe` oluşur. Kurulumda klasör seçilebilir; masaüstü ve Başlat menüsü
-kısayolu eklenir. Ayarlar ve kullanıcı karakterleri `%APPDATA%\Pati` altında durur, kaldırınca silinmez.
-
-- Uygulama simgesi `build/icon.ico`: `characters/tungarix/stand.png` büyütülerek üretildi.
-- Yerleşik karakterler `app.asar` içinde paketlenir; Electron asar içinden okuyabildiği için ayrıca
-  açılmaları gerekmez.
-- "Bilgisayar açılınca başlasın" yalnız kurulu sürümde çalışır (`npm start` ile değil).
-- İlk çalıştırmada electron-builder NSIS ve winCodeSign araçlarını GitHub'dan indirir; yavaş ağda
-  birkaç dakika sürebilir, sonraki derlemeler önbellekten gelir. Kurulum dosyası imzasızdır;
-  Windows SmartScreen "Yine de çalıştır" diye sorar.
+MIT. See [LICENSE](LICENSE).
