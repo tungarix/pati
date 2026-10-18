@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.3 (2026-10-19)
+
+### Fixed
+- A crash ("Error processing argument at index 1") while the pet was falling or being thrown: a window off every screen could report an edge that was not a number, which turned the pet's position into one. Such windows are now ignored, and an invalid position is never applied.
+
 ## 0.4.2 (2026-10-19)
 
 ### Fixed
