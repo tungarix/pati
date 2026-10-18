@@ -37,6 +37,12 @@ test('standing on a window: a nudge keeps it there, closing the window drops it'
   assert.equal(fall(r.body, []).body.y, 1040)
 })
 
+test('a window with a NaN edge is ignored, the pet still lands on a real floor', () => {
+  const broken = { left: NaN, top: NaN, right: NaN, bottom: NaN }
+  assert.equal(fall(air(500, 200), [broken]).body.y, 1040)
+  assert.equal(fall(air(500, 200), [{ left: 0, top: NaN, right: 1920, bottom: 900 }]).body.y, 1040)
+})
+
 test('maximised windows near the top of the screen are not floors', () => {
   assert.equal(fall(air(500, 0), [{ left: 0, top: 0, right: 1920, bottom: 1040 }]).body.y, 1040)
 })
@@ -69,4 +75,5 @@ test('throw speed comes from the last 100 ms of dragging', () => {
   assert.deepEqual(throwVelocity(samples), { vx: 450, vy: -225 }) // heavier than the cursor
   assert.deepEqual(throwVelocity([{ t: 0, x: 0, y: 0 }, { t: 10, x: 900, y: 0 }]), { vx: 1300, vy: 0 }) // capped
   assert.deepEqual(throwVelocity([{ t: 0, x: 0, y: 0 }]), { vx: 0, vy: 0 })
+  assert.deepEqual(throwVelocity([]), { vx: 0, vy: 0 })
 })

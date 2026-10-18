@@ -295,10 +295,13 @@ function showFlight(airborne: boolean, lean: number, stretch = 0, impact = 0): v
 function startPhysics(): void {
   if (process.platform === 'win32')
     stopWindowWatch = watchWindows(list => {
-      windowRects = list.map(([l, t, r, b]) => {
-        const d = screen.screenToDipRect(null, { x: l, y: t, width: r - l, height: b - t })
-        return { left: d.x, top: d.y, right: d.x + d.width, bottom: d.y + d.height }
-      })
+      windowRects = list
+        .map(([l, t, r, b]) => {
+          const d = screen.screenToDipRect(null, { x: l, y: t, width: r - l, height: b - t })
+          return { left: d.x, top: d.y, right: d.x + d.width, bottom: d.y + d.height }
+        })
+        // A window off every screen can convert to NaN; one such edge made the pet's position NaN.
+        .filter(r => [r.left, r.top, r.right, r.bottom].every(Number.isFinite))
     })
   let last = Date.now()
   setInterval(() => {
@@ -327,6 +330,8 @@ function startPhysics(): void {
     const [wx, wy] = pet.getPosition()
     const nx = Math.round(r.body.x - petW() / 2)
     const ny = Math.round(r.body.y - petH())
+    // Never hand Electron a non-number: drop the flight and stay put instead of crashing.
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return void ((body = null), showFlight(false, 0))
     if (nx !== wx || ny !== wy) pet.setPosition(nx, ny)
     const { airborne, vx, vy } = r.body
     // Leans into a throw, stretches in a fast fall.

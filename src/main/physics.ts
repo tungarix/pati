@@ -49,6 +49,8 @@ function hidden(rects: Rect[], index: number, x: number, y: number): boolean {
 export function floorBetween(rects: Rect[], area: Area, x: number, from: number, to: number): number | null {
   let best: number | null = area.bottom >= from && area.bottom <= to ? area.bottom : null
   rects.forEach((r, i) => {
+    // NaN fails every comparison below, so it would slip through as a floor.
+    if (!Number.isFinite(r.top)) return
     if (x < r.left || x > r.right || r.top < from || r.top > to || r.top < area.top + MIN_HEADROOM) return
     if (hidden(rects, i, x, r.top - 1)) return
     if (best === null || r.top < best) best = r.top
@@ -85,6 +87,7 @@ export function physicsStep(body: Body, dt: number, rects: Rect[], area: Area): 
 
 /** Throw speed from the last cursor positions while dragging (px/s), capped. */
 export function throwVelocity(samples: { t: number; x: number; y: number }[], cap = 1300): { vx: number; vy: number } {
+  if (samples.length === 0) return { vx: 0, vy: 0 } // let go before the first cursor sample
   const recent = samples.filter(s => s.t >= samples[samples.length - 1].t - 100)
   if (recent.length < 2) return { vx: 0, vy: 0 }
   const a = recent[0]
