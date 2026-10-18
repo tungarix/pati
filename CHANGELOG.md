@@ -2,6 +2,13 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.1 (2026-10-18)
+
+### Changed
+- Settings window: the API key field now has the same height and border as the other fields (it had the browser's default look).
+- Settings window: three type sizes instead of five, help text kept to a readable line length, spacing on a 4/8 grid.
+- The delete and move-up buttons are line icons instead of the ✕ and ↑ characters, and screen readers now announce what they do.
+
 ## 0.4.0 (2026-10-17)
 
 ### Added
