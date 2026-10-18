@@ -27,6 +27,10 @@ POSES = [
     ("dust1", False, True), ("dust2", False, True), ("dust3", False, True), ("guitar1", False, False), ("guitar2", False, False),
 ]
 STAND_HEIGHT = 300  # px, the standing pose in the output (150 on screen at scale 0.5)
+# The sheet drew see-through lenses on the held pose; Tungarix never shows his eyes.
+# Lens ellipses in output pixels: (centre, radii), painted dark with a small shine.
+DARK_LENSES = {"held": [((127.5, 139.5), (15.5, 12.5)), ((164, 132), (8, 11.5))]}
+SHINES = {"held": [((119, 135), (124, 130), 2), ((160, 128), (162, 125), 1)]}
 GAP = 6  # empty px that separate two poses
 MIN_POSE = 60  # narrower blocks are sparkles or dust puffs belonging to a neighbour
 
@@ -94,6 +98,21 @@ def blocks(alpha):
     return found
 
 
+def darken_lenses(im, lenses, shines):
+    px = im.load()
+    for (cx, cy), (rx, ry) in lenses:
+        for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
+            for x in range(int(cx - rx) - 1, int(cx + rx) + 2):
+                e = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+                r, g, b, a = px[x, y]
+                # Inside: all lens; at the rim only the light pixels, so the frame stays.
+                if a and (e <= 0.8 or (e <= 1 and (r + g + b) / 3 > 45)):
+                    px[x, y] = (18, 20, 30, a)
+    d = ImageDraw.Draw(im)
+    for a, b, width in shines:
+        d.line([a, b], fill=(200, 210, 255, 190), width=width)
+
+
 def main():
     sheet = Image.open(SHEET).convert("RGB")
     alpha = ImageChops.invert(background_mask(sheet))
@@ -126,6 +145,8 @@ def main():
     for name, im in crops:
         canvas = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
         canvas.alpha_composite(im, ((cw - im.width) // 2, ch - 3 - im.height))  # feet on the baseline
+        if name in DARK_LENSES:
+            darken_lenses(canvas, DARK_LENSES[name], SHINES[name])
         canvas.save(OUT / f"{name}.png", optimize=True)
     print(f"{len(crops)} frames, {cw}x{ch}, in {OUT}")
 
