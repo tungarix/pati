@@ -32,24 +32,25 @@ body {
 header { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; }
 #avatar { width: 56px; height: 56px; image-rendering: pixelated; object-fit: contain; }
 h1 { font-size: 20px; margin: 0; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 10px; }
-.muted { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+/* Yazı ölçeği 12 / 14 / 20; açıklama satırı okunur uzunlukta. */
+.muted { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 65ch; }
 
 section {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 14px 16px;
+  padding: 16px;
   margin-bottom: 12px;
 }
 
 .row { display: flex; gap: 8px; }
 .row select { flex: 1; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 8px 0; }
-.grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .check { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 
-select, input[type="number"], input[type="text"], input[type="time"] {
+select, input[type="number"], input[type="text"], input[type="password"], input[type="time"] {
   font: inherit;
   color: inherit;
   background: var(--bg);
@@ -71,6 +72,9 @@ button {
 }
 button:hover { border-color: var(--accent); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Sil / yukarı taşı: Unicode glif yerine aynı çizgi kalınlığında SVG. */
+button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 6px; }
+button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .reminder {
   display: grid;
@@ -82,9 +86,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 .reminder:last-child { border-bottom: 0; margin-bottom: 8px; }
 .reminder .when { width: 92px; }
-.reminder .delete { padding: 6px 9px; }
 
-h3 { font-size: 13px; margin: 12px 0 2px; }
+h3 { font-size: 14px; margin: 12px 0 4px; }
 .indent { padding-left: 24px; }
 code { font: 12px Consolas, monospace; word-break: break-all; color: var(--muted); }
 
@@ -96,13 +99,12 @@ code { font: 12px Consolas, monospace; word-break: break-all; color: var(--muted
   margin: 8px 0;
 }
 .server .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
-.server button { padding: 6px 9px; }
+.server button:not(.icon) { padding: 6px 9px; }
 .server button:disabled { opacity: 0.35; cursor: default; }
 
 .memory { list-style: none; margin: 8px 0; padding: 0; }
 .memory li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .memory li:last-child { border-bottom: 0; }
-.memory button { padding: 3px 8px; }
 
-.problems { margin: 8px 0 0; padding-left: 18px; color: var(--warn); font-size: 12.5px; }
+.problems { margin: 8px 0 0; padding-left: 18px; color: var(--warn); font-size: 12px; }
 .problems:empty { display: none; }

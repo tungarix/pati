@@ -32,6 +32,18 @@ let saveTimer: number | undefined
 let lastState: State | null = null
 const tr = (key: MessageKey, vars?: Record<string, string | number>) => t(settings.language, key, vars)
 
+const ICONS = { x: '<path d="M18 6 6 18M6 6l12 12"/>', up: '<path d="m18 15-6-6-6 6"/>' }
+/** Glif yerine SVG ikonlu düğme; ekran okuyucu için adı title'dan alır. */
+function iconButton(icon: keyof typeof ICONS, title: string) {
+  const b = document.createElement('button')
+  b.type = 'button'
+  b.className = 'icon'
+  b.title = title
+  b.setAttribute('aria-label', title)
+  b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg>`
+  return b
+}
+
 /** Fills every [data-i18n] element with its message in the current language. */
 function translate() {
   document.documentElement.lang = settings.language
@@ -171,11 +183,8 @@ function reminderRow(r: Reminder, i: number): HTMLElement {
   }
 
   function deleteButton() {
-    const del = document.createElement('button')
-    del.type = 'button'
-    del.className = 'delete'
-    del.textContent = '✕'
-    del.title = tr('settings.delete')
+    const del = iconButton('x', tr('settings.delete'))
+    del.classList.add('delete')
     del.onclick = () => {
       settings.reminders.splice(i, 1)
       renderReminders()
@@ -244,10 +253,7 @@ function serverRow(server: AiServer, i: number): HTMLElement {
   key.oninput = () => update({ apiKey: key.value.trim() }, false)
   key.onchange = () => void fillModels()
 
-  const up = document.createElement('button')
-  up.type = 'button'
-  up.textContent = '↑'
-  up.title = tr('settings.aiUp')
+  const up = iconButton('up', tr('settings.aiUp'))
   up.disabled = i === 0
   up.onclick = () => {
     const list = settings.ai.servers
@@ -256,10 +262,7 @@ function serverRow(server: AiServer, i: number): HTMLElement {
     save()
   }
 
-  const del = document.createElement('button')
-  del.type = 'button'
-  del.textContent = '✕'
-  del.title = tr('settings.delete')
+  const del = iconButton('x', tr('settings.delete'))
   del.onclick = () => {
     settings.ai.servers.splice(i, 1)
     renderServers()
@@ -303,10 +306,7 @@ function renderMemory(facts: Fact[]) {
       const li = document.createElement('li')
       const text = document.createElement('span')
       text.textContent = f.text
-      const del = document.createElement('button')
-      del.type = 'button'
-      del.textContent = '✕'
-      del.title = tr('settings.delete')
+      const del = iconButton('x', tr('settings.delete'))
       del.onclick = () => api.memoryDelete(f.id)
       li.append(text, del)
       return li
