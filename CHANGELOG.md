@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.2 (2026-10-19)
+
+### Fixed
+- Tungarix no longer shows his eyes through see-through sunglasses while held; the lenses are dark like in every other pose.
+
 ## 0.4.1 (2026-10-18)
 
 ### Changed
