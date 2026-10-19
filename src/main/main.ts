@@ -16,7 +16,7 @@ import { dueReminders, type FiredLog } from './reminders.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
-import { physicsStep, throwVelocity, type Body, type Rect } from './physics.ts'
+import { physicsStep, pixel, throwVelocity, type Body, type Rect } from './physics.ts'
 import { watchWindows } from './windows.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
 import { matchFocus, matchIntent, matchScreen, type Intent } from './intents.ts'
@@ -328,8 +328,8 @@ function startPhysics(): void {
     const r = physicsStep(body ?? { ...feet(), vx: 0, vy: 0, airborne: false }, dt, windowRects, area)
     body = r.body.airborne ? r.body : null
     const [wx, wy] = pet.getPosition()
-    const nx = Math.round(r.body.x - petW() / 2)
-    const ny = Math.round(r.body.y - petH())
+    const nx = pixel(r.body.x - petW() / 2)
+    const ny = pixel(r.body.y - petH())
     // Never hand Electron a non-number: drop the flight and stay put instead of crashing.
     if (![nx, ny].every(v => Number.isSafeInteger(v) && Math.abs(v) < 100_000)) return void ((body = null), showFlight(false, 0))
     if (nx !== wx || ny !== wy) pet.setPosition(nx, ny)
@@ -913,7 +913,7 @@ ipcMain.on('drag-start', (_e, offset: { x: number; y: number }) => {
     const p = screen.getCursorScreenPoint()
     dragSamples.push({ t: Date.now(), x: p.x, y: p.y })
     if (dragSamples.length > 12) dragSamples.shift()
-    pet?.setPosition(Math.round(p.x - offset.x), Math.round(p.y - offset.y))
+    pet?.setPosition(pixel(p.x - offset.x), pixel(p.y - offset.y))
     // Held by the scruff it swings behind the cursor like a pendulum.
     showFlight(false, throwVelocity(dragSamples).vx / 40)
   }, 16)

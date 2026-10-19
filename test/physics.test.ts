@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { physicsStep, throwVelocity, type Body, type Rect } from '../src/main/physics.ts'
+import { physicsStep, pixel, throwVelocity, type Body, type Rect } from '../src/main/physics.ts'
 
 const area = { left: 0, top: 0, right: 1920, bottom: 1040 }
 const fall = (body: Body, rects: Rect[], seconds = 3) => {
@@ -48,6 +48,13 @@ test('feet below the floor (another screen) land on it instead of falling foreve
   assert.equal(landed, true)
   assert.equal(body.y, 1040)
   assert.equal(physicsStep({ x: 500, y: 1300, vx: 0, vy: 0, airborne: false }, 1 / 60, [], area).body.y, 1040)
+})
+
+test('window coordinates are never negative zero (Electron rejects -0)', () => {
+  assert.ok(Object.is(Math.round(-0.3), -0)) // the trap
+  assert.ok(Object.is(pixel(-0.3), 0))
+  assert.equal(pixel(12.6), 13)
+  assert.equal(pixel(-12.6), -13)
 })
 
 test('maximised windows near the top of the screen are not floors', () => {

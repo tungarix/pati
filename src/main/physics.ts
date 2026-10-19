@@ -100,3 +100,8 @@ export function throwVelocity(samples: { t: number; x: number; y: number }[], ca
   const weight = 0.45
   return { vx: clamp(((b.x - a.x) / dt) * weight), vy: clamp(((b.y - a.y) / dt) * weight) }
 }
+
+/** A window coordinate: rounded, and never -0, which Electron rejects as "not an integer". */
+export function pixel(v: number): number {
+  return Math.round(v) + 0
+}
