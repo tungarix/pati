@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.4.1 (2026-10-19)
+
+### Fixed
+- The real cause of the "Error processing argument at index 0/1" crash: with the pet at the left or top edge of the screen a position could round to -0, which Electron rejects as not an integer. Window positions never use -0 now, while falling, walking or being dragged.
+
 ## 0.4.4 (2026-10-19)
 
 ### Fixed
