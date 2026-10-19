@@ -74,7 +74,8 @@ export function physicsStep(body: Body, dt: number, rects: Rect[], area: Area): 
   let y = body.y + vy * dt
   if (y < area.top + MIN_HEADROOM) (y = area.top + MIN_HEADROOM), (vy = Math.max(0, vy))
   if (vy > 0) {
-    const floor = floorBetween(rects, area, x, body.y, Math.min(y, area.bottom))
+    // Feet already below the floor (moved to a screen with a higher taskbar): land on it, never fall forever.
+    const floor = floorBetween(rects, area, x, Math.min(body.y, area.bottom), Math.min(y, area.bottom))
     if (floor !== null) {
       if (vy > BOUNCE_SPEED) return { body: { x, y: floor - 1, vx: vx * 0.6, vy: -vy * 0.3, airborne: true }, landed: false, impact: vy }
       return { body: { x, y: floor, vx: 0, vy: 0, airborne: false }, landed: true, impact: vy }

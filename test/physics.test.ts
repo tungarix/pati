@@ -43,6 +43,13 @@ test('a window with a NaN edge is ignored, the pet still lands on a real floor',
   assert.equal(fall(air(500, 200), [{ left: 0, top: NaN, right: 1920, bottom: 900 }]).body.y, 1040)
 })
 
+test('feet below the floor (another screen) land on it instead of falling forever', () => {
+  const { body, landed } = fall({ x: 500, y: 1300, vx: 0, vy: 0, airborne: true }, [])
+  assert.equal(landed, true)
+  assert.equal(body.y, 1040)
+  assert.equal(physicsStep({ x: 500, y: 1300, vx: 0, vy: 0, airborne: false }, 1 / 60, [], area).body.y, 1040)
+})
+
 test('maximised windows near the top of the screen are not floors', () => {
   assert.equal(fall(air(500, 0), [{ left: 0, top: 0, right: 1920, bottom: 1040 }]).body.y, 1040)
 })

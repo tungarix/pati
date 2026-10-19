@@ -331,7 +331,7 @@ function startPhysics(): void {
     const nx = Math.round(r.body.x - petW() / 2)
     const ny = Math.round(r.body.y - petH())
     // Never hand Electron a non-number: drop the flight and stay put instead of crashing.
-    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return void ((body = null), showFlight(false, 0))
+    if (![nx, ny].every(v => Number.isSafeInteger(v) && Math.abs(v) < 100_000)) return void ((body = null), showFlight(false, 0))
     if (nx !== wx || ny !== wy) pet.setPosition(nx, ny)
     const { airborne, vx, vy } = r.body
     // Leans into a throw, stretches in a fast fall.
