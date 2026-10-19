@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.4 (2026-10-19)
+
+### Fixed
+- The same crash as in 0.4.3 could still happen: when the pet's feet ended up below the floor (for example after moving to a screen with a higher taskbar), it never found a floor and fell until its position no longer fit. It now lands on the floor, and positions outside a sane range are never applied.
+
 ## 0.4.3 (2026-10-19)
 
 ### Fixed
