@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.4.2 (2026-10-21)
+
+### Fixed
+- On a scaled display (125%, 150%) the pet window grew a little every time it moved. While dragging, the chat balloon spread over the screen, and the taller window put the character below the floor, so it seemed to fall off the screen. The window now always keeps its exact size.
+
 ## 0.4.4.1 (2026-10-19)
 
 ### Fixed
