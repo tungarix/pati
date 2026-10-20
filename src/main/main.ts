@@ -274,6 +274,14 @@ let shown = { airborne: false, tilt: 0, stretch: 0 }
 /** Walking: px still to go (the renderer asks 10 times a second), the speed, and the sub-pixel carry. */
 const walk = { pending: 0, rate: 0, carry: 0 }
 
+/**
+ * Moves the pet window, always with its exact size: on a scaled display (125%, 150%)
+ * setPosition can grow a window by a pixel per call, and dragging calls it 60 times a second.
+ */
+function movePet(x: number, y: number): void {
+  pet?.setBounds({ x: pixel(x), y: pixel(y), width: petW(), height: petH() })
+}
+
 /** The pet's feet: bottom centre of its window. */
 function feet(): { x: number; y: number } {
   const [x, y] = pet!.getPosition()
@@ -318,7 +326,7 @@ function startPhysics(): void {
       if (whole) {
         walk.carry -= whole
         const [wx, wy] = pet.getPosition()
-        pet.setPosition(wx + whole, wy)
+        movePet(wx + whole, wy)
       }
     }
     if (!settings.physics) return void ((body = null), showFlight(false, 0))
@@ -332,7 +340,7 @@ function startPhysics(): void {
     const ny = pixel(r.body.y - petH())
     // Never hand Electron a non-number: drop the flight and stay put instead of crashing.
     if (![nx, ny].every(v => Number.isSafeInteger(v) && Math.abs(v) < 100_000)) return void ((body = null), showFlight(false, 0))
-    if (nx !== wx || ny !== wy) pet.setPosition(nx, ny)
+    if (nx !== wx || ny !== wy) movePet(nx, ny)
     const { airborne, vx, vy } = r.body
     // Leans into a throw, stretches in a fast fall.
     showFlight(airborne, airborne ? vx / 70 : 0, airborne ? Math.min(0.12, (Math.abs(vy) / 1900) * 0.12) : 0, r.impact)
@@ -913,7 +921,7 @@ ipcMain.on('drag-start', (_e, offset: { x: number; y: number }) => {
     const p = screen.getCursorScreenPoint()
     dragSamples.push({ t: Date.now(), x: p.x, y: p.y })
     if (dragSamples.length > 12) dragSamples.shift()
-    pet?.setPosition(pixel(p.x - offset.x), pixel(p.y - offset.y))
+    movePet(p.x - offset.x, p.y - offset.y)
     // Held by the scruff it swings behind the cursor like a pendulum.
     showFlight(false, throwVelocity(dragSamples).vx / 40)
   }, 16)
