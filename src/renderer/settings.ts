@@ -21,6 +21,16 @@ interface State {
   facts: Fact[]
   brainDir: string
   voice: { whisper: string | null; model: string | null; shortcutOk: boolean }
+  model: ModelState
+}
+
+interface ModelState {
+  status: 'not-installed' | 'partial' | 'installed'
+  running: boolean
+  installing: boolean
+  /** Localized "Pati-4B iniyor: %37 ..." while installing. */
+  progressText: string
+  error: string
 }
 
 const api = window.pati
@@ -366,6 +376,12 @@ function apply(state: State) {
   }
   bindNumber('size', () => settings.size, v => (settings.size = v))
   bindCheck('ai-enabled', () => settings.ai.enabled, v => (settings.ai.enabled = v))
+  bindCheck('model-enabled', () => settings.ai.builtIn.enabled, v => (settings.ai.builtIn.enabled = v))
+  $('model-install').onclick = api.modelInstall
+  $('model-cancel').onclick = api.modelCancel
+  $('model-doc').onclick = e => (e.preventDefault(), api.modelDoc())
+  $('model-remove').onclick = () => confirm(tr('settings.modelRemoveConfirm')) && api.modelRemove()
+  renderModel(state.model)
   renderServers()
   bindCheck('ai-memory', () => settings.ai.memory, v => (settings.ai.memory = v))
   renderMemory(state.facts)
@@ -411,6 +427,19 @@ function apply(state: State) {
   renderReminders()
 }
 
+function renderModel(m: ModelState) {
+  $('model-status').textContent = m.installing
+    ? m.progressText
+    : m.error
+      ? tr('settings.modelError', { error: m.error })
+      : tr(m.status === 'not-installed' ? 'settings.modelNotInstalled' : m.status === 'partial' ? 'settings.modelPartial' : m.running ? 'settings.modelRunning' : 'settings.modelStopped')
+  const install = $<HTMLButtonElement>('model-install')
+  install.textContent = tr(m.status === 'partial' ? 'settings.modelResume' : 'settings.modelInstall')
+  install.hidden = m.installing || m.status === 'installed'
+  $('model-cancel').hidden = !m.installing
+  $('model-remove').hidden = m.installing || m.status === 'not-installed'
+}
+
 api.getState().then(s => apply(s as State))
 // The main process changes things too (a key typed into the balloon, a reminder
 // or fact the chat added); take those, but not the echo of our own save, which
@@ -419,6 +448,6 @@ api.onState(s => {
   const next = s as State
   const isEcho = JSON.stringify(next.settings) === JSON.stringify(settings) && JSON.stringify(next.facts) === JSON.stringify(lastState?.facts)
   // The echo still carries fresh whisper and shortcut status.
-  if (isEcho) (lastState = next), renderVoice(next.voice)
+  if (isEcho) (lastState = next), renderVoice(next.voice), renderModel(next.model)
   else apply(next)
 })

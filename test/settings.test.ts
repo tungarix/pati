@@ -37,3 +37,9 @@ test('size defaults to 1 and stays within 0.5-2', () => {
   assert.equal(loadSettings(write({ size: 0.1 }), 'tr').size, 0.5)
   assert.equal(loadSettings(write({ size: 1.4 }), 'tr').size, 1.4)
 })
+
+test('settings from before the built-in model get it enabled and not yet offered', () => {
+  assert.deepEqual(loadSettings(write({ ai: { enabled: true, servers: [] } }), 'tr').ai.builtIn, { enabled: true, offered: false })
+  assert.deepEqual(loadSettings(write({ ai: { builtIn: { offered: true } } }), 'tr').ai.builtIn, { enabled: true, offered: true })
+  assert.deepEqual(loadSettings(write({ ai: { builtIn: { enabled: false, offered: true } } }), 'tr').ai.builtIn, { enabled: false, offered: true })
+})

@@ -47,15 +47,14 @@ yaklaşık 1.000 örnek konuşmayla eğitilmiş bir LoRA. Ekran kartında yakla�
 yavaştır). Pati'nin kendi ölçüm setinde %87 alıyor, düz Qwen3.5-4B %54; ayrıntılar [docs/PATI-4B.md](docs/PATI-4B.md)
 dosyasında. Sohbet ve küçük işler için yapıldı; uzun cevap, kod ya da güvenmen gereken bilgiler için değil.
 
-1. Windows için [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) indir (NVIDIA kart için CUDA, diğerleri için
-   Vulkan sürümü) ve zip'i aç.
-2. [Pati sürümünden](https://github.com/tungarix/pati/releases/latest) üç model dosyasını aynı klasöre indir:
-   `Pati-4B-Q4_K_M-00001-of-00002.gguf`, `Pati-4B-Q4_K_M-00002-of-00002.gguf` (model; GitHub'ın dosya boyutu sınırı
-   yüzünden ikiye bölündü, ikisini de tut, birleştirmen gerekmez) ve `mmproj-4B-F16.gguf` (ekrana bakabilmesi için).
-3. O klasörde şunu çalıştır:
-   `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
-   (`llama-server.exe` `PATH`'te değilse önüne yolunu yaz).
-4. Pati'yi aç; modeli 8080 portunda kendisi bulur.
+Pati ilk açılışta indirmeyi önerir (llama.cpp ile birlikte yaklaşık 3,4 GB) ya da **Ayarlar > Yapay zekâ > Pati-4B > İndir ve kur**
+de. İlerlemeyi gösterir, dosyaları doğrular, Pati açılınca modeli başlatır, Pati kapanınca durdurur. Dosyalar
+`%LOCALAPPDATA%\Pati\model` klasörüne iner; aynı yerdeki **Kaldır** onları siler.
+
+**Gelişmiş / kendin kur:** [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) indir (NVIDIA kart için CUDA, diğerleri
+için Vulkan sürümü) ve [`pati-4b-v1` sürümünden](https://github.com/tungarix/pati/releases/tag/pati-4b-v1) üç model dosyasını aynı
+klasöre al, sonra `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
+çalıştır. Pati modeli 8080 portunda kendisi bulur.
 
 ## Sesle konuşma
 

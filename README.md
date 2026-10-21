@@ -48,15 +48,15 @@ processor, slowly). On Pati's own test set it scores 87%, against 54% for the pl
 [docs/PATI-4B.md](docs/PATI-4B.md). It is made for chat and small tasks, not for long answers, code or facts you
 need to rely on.
 
-1. Download [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) for Windows (the CUDA build for an NVIDIA
-   card, Vulkan for others) and unzip it.
-2. From the [Pati release](https://github.com/tungarix/pati/releases/latest), download the three model files into one
-   folder: `Pati-4B-Q4_K_M-00001-of-00002.gguf`, `Pati-4B-Q4_K_M-00002-of-00002.gguf` (the model, split in two
-   because of GitHub's file size limit; keep both, no joining needed) and `mmproj-4B-F16.gguf` (lets it look at your screen).
-3. In that folder run:
-   `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
-   (with the path to `llama-server.exe` in front if it is not on `PATH`).
-4. Open Pati; it finds the model on port 8080 by itself.
+Pati offers to download it on first start (about 3.4 GB, with llama.cpp), or use **Settings > AI > Pati-4B > Install**.
+It downloads with progress, checks the files, starts the model when Pati starts and stops it when Pati quits. Files go to
+`%LOCALAPPDATA%\Pati\model`; **Remove** in the same place deletes them.
+
+**Advanced / do it yourself:** download [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (CUDA build for an
+NVIDIA card, Vulkan for others) and, from the [`pati-4b-v1` release](https://github.com/tungarix/pati/releases/tag/pati-4b-v1),
+the three model files into one folder, then run
+`llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`.
+Pati finds it on port 8080 by itself.
 
 ## Talk by voice
 

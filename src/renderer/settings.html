@@ -38,6 +38,15 @@
   <section>
     <h2 data-i18n="settings.ai"></h2>
     <label class="check"><input type="checkbox" id="ai-enabled"> <span data-i18n="settings.aiEnabled"></span></label>
+    <h3 data-i18n="settings.model"></h3>
+    <p id="model-status" role="status"></p>
+    <div class="row">
+      <button id="model-install" type="button"></button>
+      <button id="model-cancel" type="button" data-i18n="settings.modelCancel"></button>
+      <button id="model-remove" type="button" data-i18n="settings.modelRemove"></button>
+    </div>
+    <label class="check"><input type="checkbox" id="model-enabled"> <span data-i18n="settings.modelEnabled"></span></label>
+    <p class="muted"><span data-i18n="settings.modelNote"></span> <a href="#" id="model-doc">docs/PATI-4B.md</a></p>
     <h3 data-i18n="settings.aiServers"></h3>
     <p class="muted" data-i18n="settings.aiServersHelp"></p>
     <div id="ai-servers"></div>

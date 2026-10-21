@@ -5,7 +5,7 @@ All notable changes to Pati. Versions follow [semantic versioning](https://semve
 ## 0.4.5 (2026-10-21)
 
 ### Added
-- **Pati-4B**, a recommended local model made for Pati: Qwen3.5-4B fine-tuned for reminders, remembering facts, actions and short small talk. It scores 87% on Pati's test set against 54% for the plain Qwen3.5-4B. The model files are attached to this release; setup is in the README, details in [docs/PATI-4B.md](docs/PATI-4B.md).
+- **Pati-4B**, a recommended local model made for Pati: Qwen3.5-4B fine-tuned for reminders, remembering facts, actions and short small talk. It scores 87% on Pati's test set against 54% for the plain Qwen3.5-4B. The model files are attached to the `pati-4b-v1` release. **One-click install:** Pati offers to download Pati-4B and llama.cpp (about 3.4 GB) when it finds no local AI, or from Settings > AI > Pati-4B; it downloads with progress and resume, checks the files, starts the server with Pati and stops it on quit. Manual setup is still in the README, details in [docs/PATI-4B.md](docs/PATI-4B.md).
 - `eval/`: a Turkish test set of 80 cases and a runner (`npm run eval`) that scores any OpenAI-compatible server on what Pati asks of a model.
 
 ## 0.4.4.2 (2026-10-21)

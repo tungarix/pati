@@ -60,6 +60,8 @@ let isChatting = false
 let isAskingKey = false
 /** When the current chat request was sent; null while none is pending. */
 let waitingSince: number | null = null
+/** A progress line from the main process (the model download); shown instead of the waiting seconds. */
+let statusText = ''
 let balloonUntil = 0
 let hushUntil = 0
 let focus: State['focus'] = { phase: 'off', until: 0 }
@@ -237,7 +239,9 @@ chatForm.addEventListener('submit', e => {
 })
 chatInput.addEventListener('keydown', e => e.key === 'Escape' && closeBalloon())
 
-function onAi(event: 'token' | 'done' | 'error' | 'needKey', text: string, id?: string) {
+function onAi(event: 'token' | 'done' | 'error' | 'needKey' | 'status', text: string, id?: string) {
+  if (event === 'status') return void (statusText = text)
+  statusText = ''
   if (event !== 'token') waitingSince = null
   if (!isChatting) return
   waitLabel.textContent = ''
@@ -431,13 +435,13 @@ async function startListening() {
 chatMic.addEventListener('click', e => (e.stopPropagation(), toggleListening()))
 
 /** An action waiting for the user's OK, shown inside the chat with three answers. */
-function askConfirm(id: string, text: string) {
+function askConfirm(id: string, text: string, yesNo = false) {
   if (!isChatting) openChat()
   const b = addBubble('pet', text)
   const row = document.createElement('div')
   row.className = 'buttons'
   const answers: [string, 'yes' | 'always' | 'no'][] = [[tr('confirm.yes'), 'yes'], [tr('confirm.always'), 'always'], [tr('confirm.no'), 'no']]
-  for (const [label, answer] of answers) {
+  for (const [label, answer] of answers.filter(([, a]) => !(yesNo && a === 'always'))) {
     const btn = document.createElement('button')
     btn.textContent = label
     if (answer === 'yes') btn.className = 'primary'
@@ -558,7 +562,7 @@ async function tickOnce() {
   if (waitingSince !== null && !balloon.hidden) {
     // Slow local models can take minutes; show that it is still working instead of giving up.
     const s = Math.round((now - waitingSince) / 1000)
-    waitLabel.textContent = s >= 5 ? tr('chat.waiting', { s }) : ''
+    waitLabel.textContent = statusText || (s >= 5 ? tr('chat.waiting', { s }) : '')
     balloonUntil = now + 120_000
   }
   if (!balloon.hidden && now > balloonUntil && !isSpeaking) closeBalloon()
@@ -643,7 +647,7 @@ api.onCommand((cmd: PetCommand) => {
     if (cmd.impact > 0) motion.squash.v -= 17 * Math.min(0.3, cmd.impact / 4000)
   }
   else if (cmd.type === 'ai') onAi(cmd.event, cmd.text, cmd.event === 'done' ? cmd.id : undefined)
-  else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text)
+  else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text, cmd.yesNo)
   else if (cmd.type === 'listen') toggleListening()
 })
 

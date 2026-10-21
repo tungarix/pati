@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url'
 
 import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
 
-import { detectLang, t } from '../shared/i18n.ts'
+import { detectLang, t, type MessageKey } from '../shared/i18n.ts'
 import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
 import { askAboutImage, chatWithTools, detectServers, listModels, systemPrompt, UnauthorizedError, withClock, type ChatMessage } from './ai.ts'
 import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
 import { appendExchange, appendFeedback, ensureBrain, type FeedbackRecord, getSummary, MEMORY_NOTE, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
+import { InstallError, LocalModel, withManagedServer } from './localModel.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
@@ -69,7 +70,7 @@ function broadcastState(): void {
 }
 
 function stateForWindows() {
-  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus(), focus }
+  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus(), focus, model: modelState() }
 }
 
 // ---- The pet window ---------------------------------------------------------
@@ -487,6 +488,16 @@ function confirmAction(kind: ActionKind, what: string): Promise<boolean> {
   })
 }
 
+/** A plain yes/no question in the balloon; no answer for ten minutes counts as no. */
+function askYesNo(text: string): Promise<boolean> {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  send({ type: 'confirm', id, text, yesNo: true })
+  return new Promise(resolve => {
+    const timer = setTimeout(() => (pendingConfirms.delete(id), resolve(false)), 600_000)
+    pendingConfirms.set(id, answer => (clearTimeout(timer), resolve(answer === 'yes')))
+  })
+}
+
 ipcMain.on('confirm-reply', (_e, id: string, answer: 'yes' | 'always' | 'no') => {
   pendingConfirms.get(id)?.(answer)
   pendingConfirms.delete(id)
@@ -661,6 +672,91 @@ async function discoverServers(): Promise<boolean> {
   return true
 }
 
+// ---- Pati-4B: the managed local model ------------------------------------------
+
+const localModel = new LocalModel()
+localModel.onChange = url => setManagedServer(url)
+let installing: AbortController | null = null
+let offering = false
+let modelError = ''
+let progressText = ''
+
+function modelState() {
+  return { status: localModel.status(), running: localModel.url !== null, installing: installing !== null, progressText, error: modelError }
+}
+
+const gb = (bytes: number) => (bytes / 1e9).toLocaleString(settings.language === 'tr' ? 'tr-TR' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+/** Puts the running model server first in the server list, or takes its entry out. */
+function setManagedServer(url: string | null): void {
+  const servers = withManagedServer(settings.ai.servers, url)
+  if (JSON.stringify(servers) !== JSON.stringify(settings.ai.servers)) applySettings({ ...settings, ai: { ...settings.ai, servers } })
+  else broadcastState()
+}
+
+/** Starts or stops the model server to match the settings and what is installed; returns an error message or ''. */
+async function syncBuiltIn(): Promise<string> {
+  let url: string | null = null
+  if (settings.ai.builtIn.enabled && localModel.status() === 'installed') {
+    modelError = ''
+    try {
+      url = await localModel.start()
+    } catch (err) {
+      console.error('Pati-4B did not start:', err)
+      if (settings.ai.builtIn.enabled) modelError = t(settings.language, 'model.error.start', { detail: (err as Error).message, log: path.join(localModel.dir, 'llama-server.log') })
+    }
+  } else await localModel.stop()
+  setManagedServer(url)
+  return modelError
+}
+
+async function installModel(pending?: string): Promise<void> {
+  if (installing) return
+  const abort = (installing = new AbortController())
+  const lang = settings.language
+  modelError = ''
+  progressText = '…'
+  let lastSent = 0
+  if (!settings.ai.builtIn.enabled) applySettings({ ...settings, ai: { ...settings.ai, builtIn: { ...settings.ai.builtIn, enabled: true } } })
+  else broadcastState()
+  try {
+    await localModel.install(p => {
+      if (Date.now() - lastSent < 2000) return
+      lastSent = Date.now()
+      progressText = t(lang, 'model.progress', { pct: Math.floor((p.overallDone * 100) / p.overallTotal), done: gb(p.overallDone), total: gb(p.overallTotal) })
+      send({ type: 'ai', event: 'status', text: progressText })
+      broadcastState()
+    }, abort.signal)
+    const failed = await syncBuiltIn()
+    if (failed) return send({ type: 'ai', event: 'error', text: failed })
+    send({ type: 'ai', event: 'done', text: t(lang, 'model.ready') })
+    if (pending) void chat(pending, false)
+  } catch (err) {
+    if (err instanceof InstallError && err.code === 'aborted') send({ type: 'ai', event: 'done', text: t(lang, 'model.stopped') })
+    else {
+      modelError = err instanceof InstallError ? t(lang, `model.error.${err.code}` as MessageKey, { detail: err.detail }) : String(err)
+      send({ type: 'ai', event: 'error', text: modelError })
+    }
+  } finally {
+    installing = null
+    progressText = ''
+    broadcastState()
+  }
+}
+
+/** Asks in the balloon whether to download Pati-4B (once per chat message that found no server, and once on first start). */
+async function offerModel(pending?: string): Promise<void> {
+  const lang = settings.language
+  if (installing) return send({ type: 'ai', event: 'error', text: t(lang, 'model.busy', { progress: progressText }) })
+  if (offering) return
+  offering = true
+  if (!settings.ai.builtIn.offered) applySettings({ ...settings, ai: { ...settings.ai, builtIn: { ...settings.ai.builtIn, offered: true } } })
+  const yes = await askYesNo(t(lang, 'model.offer'))
+  offering = false
+  if (yes) void installModel(pending)
+  else send({ type: 'ai', event: 'done', text: t(lang, 'model.declined') })
+}
+
 const EXTRACT_PROMPT =
   'You save facts about the user. Read the user message and call the remember tool once for every lasting fact about the user ' +
   '(name, age, school, job, hobby, likes, dislikes, goals), written as a short sentence in the language of the message. ' +
@@ -817,6 +913,8 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
   }
   // Nothing on the list answered: look on the usual ports before giving up.
   if (mayDiscover && (await discoverServers())) return chat(text, false)
+  // Someone with servers of their own that are just off gets the offer once, not on every message.
+  if (mayDiscover && localModel.status() !== 'installed' && (!settings.ai.builtIn.offered || settings.ai.servers.length === 0)) return offerModel(text)
   const url = settings.ai.servers[0]?.baseUrl ?? 'localhost'
   send({ type: 'ai', event: 'error', text: t(lang, 'chat.noServer', { url }) })
 }
@@ -958,8 +1056,19 @@ ipcMain.on('hide-pet', () => {
   rebuildTray()
 })
 
+ipcMain.on('model-install', () => void installModel())
+ipcMain.on('model-cancel', () => installing?.abort())
+ipcMain.on('model-doc', () => void shell.openExternal('https://github.com/tungarix/pati/blob/main/docs/PATI-4B.md'))
+ipcMain.on('model-remove', async () => {
+  if (installing) return
+  await localModel.uninstall()
+  modelError = ''
+  setManagedServer(null)
+})
+
 ipcMain.handle('save-settings', (_e, next: Settings) => {
   applySettings(next)
+  void syncBuiltIn()
   return stateForWindows()
 })
 
@@ -995,9 +1104,15 @@ if (!app.requestSingleInstanceLock()) {
     registerShortcut()
     startTimers()
     startPhysics()
+    void syncBuiltIn()
+    // First start with no local AI anywhere: offer Pati-4B once, after the greeting.
+    setTimeout(async () => {
+      if (settings.ai.builtIn.offered || !settings.ai.enabled || localModel.status() === 'installed' || settings.ai.servers.length > 0) return
+      if ((await detectServers()).length === 0) void offerModel()
+    }, 10_000)
   })
 
   // The pet lives in the tray: closing the settings window must not quit.
   app.on('window-all-closed', () => {})
-  app.on('will-quit', () => (globalShortcut.unregisterAll(), stopWindowWatch?.()))
+  app.on('will-quit', () => (globalShortcut.unregisterAll(), stopWindowWatch?.(), void localModel.stop()))
 }

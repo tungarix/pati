@@ -8,6 +8,7 @@ folders, music and volume, notes, battery status, and short small talk. Mostly T
   (rank 16) trained on Pati conversations and merged into the base language model. The vision projector
   (`mmproj-4B-F16.gguf`) is unsloth's conversion of the unchanged base projector.
 - **File:** GGUF, Q4_K_M, 2.5 GB, split in two parts for GitHub. Load the first part; llama.cpp reads both.
+- **Managed install:** when Pati installs it (offer on first start, or Settings > AI > Pati-4B), the files and llama.cpp live in `%LOCALAPPDATA%\Pati\model` (`llama\` holds llama.cpp, `llama-server.log` the last run's log). Pati starts the server on `127.0.0.1:18080` (or the next free port up to 18085) and stops it on quit.
 - **Data:** about 1,000 synthetic conversations built for Pati: the correct tool calls come from templates, the replies
   were written by a local Qwen3.5-9B and kept only if a local Qwen3.6-35B rated them 4 or 5 out of 5. No real user data.
   The 80 test cases below were kept out of the training data.

@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   speech: { enabled: true, voiceName: null, rate: 1, pitch: 1 },
   tips: { enabled: true, minMinutes: 20, maxMinutes: 40 },
   // No servers yet: the first chat looks for one on the usual local ports.
-  ai: { enabled: true, servers: [], memory: true, tools: { clipboard: false, web: false, actions: true }, allowedActions: [], brainDir: '' },
+  ai: { enabled: true, servers: [], memory: true, tools: { clipboard: false, web: false, actions: true }, allowedActions: [], brainDir: '', builtIn: { enabled: true, offered: false } },
   proactive: { enabled: true, briefing: true, lateNight: true, breaks: true },
   voice: { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' },
   sleepAfterSeconds: 120,
@@ -42,6 +42,7 @@ function migrateAi(saved: SavedAi | undefined): Settings['ai'] {
     tools: { ...d.tools, ...saved?.tools },
     allowedActions: Array.isArray(saved?.allowedActions) ? saved.allowedActions : d.allowedActions,
     brainDir: typeof saved?.brainDir === 'string' ? saved.brainDir : d.brainDir,
+    builtIn: { ...d.builtIn, ...saved?.builtIn },
   }
 }
 

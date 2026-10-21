@@ -112,6 +112,8 @@ export interface Settings {
     allowedActions: string[]
     /** The brain folder (chats, summaries, Memory.md); empty = Documents/Pati Beyni. */
     brainDir: string
+    /** The managed Pati-4B: start it with Pati when installed; `offered` = the install was offered once. */
+    builtIn: { enabled: boolean; offered: boolean }
   }
   /** Talking by voice: a global shortcut starts listening, whisper.cpp writes it down; empty paths = found on their own. */
   voice: { enabled: boolean; shortcut: string; whisperPath: string; modelPath: string }
@@ -136,7 +138,10 @@ export type PetCommand =
   | { type: 'ai'; event: 'done'; text: string; id?: string }
   | { type: 'ai'; event: 'error'; text: string }
   | { type: 'ai'; event: 'needKey'; text: string }
-  | { type: 'confirm'; id: string; text: string }
+  /** A progress line that replaces the "thinking" label until the next answer. */
+  | { type: 'ai'; event: 'status'; text: string }
+  /** `yesNo`: only Yes / No, no "always". */
+  | { type: 'confirm'; id: string; text: string; yesNo?: boolean }
   /** The push-to-talk shortcut was pressed: start listening, or stop if already listening. */
   | { type: 'listen' }
   /** How the body moves: in the air (no walking, falling pose), the lean to swing towards (degrees), stretch of a fast fall, speed it just hit a floor with. */

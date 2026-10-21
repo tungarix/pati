@@ -32,6 +32,10 @@ const api = {
   focusPet: () => ipcRenderer.send('focus-pet'),
   transcribe: (wav: ArrayBuffer): Promise<{ text: string } | { error: string }> => ipcRenderer.invoke('voice-transcribe', wav),
   voiceChoose: (which: 'whisper' | 'model') => ipcRenderer.invoke('voice-choose', which),
+  modelInstall: () => ipcRenderer.send('model-install'),
+  modelCancel: () => ipcRenderer.send('model-cancel'),
+  modelRemove: () => ipcRenderer.send('model-remove'),
+  modelDoc: () => ipcRenderer.send('model-doc'),
   confirmReply: (id: string, answer: 'yes' | 'always' | 'no') => ipcRenderer.send('confirm-reply', id, answer),
 }
 
