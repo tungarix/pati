@@ -39,6 +39,25 @@ Pati talks to any OpenAI-compatible server on your computer. It looks on the usu
 - **Ollama:** install it and `ollama pull` a model; Pati finds it on port 11434.
 - **LM Studio:** load a model and start the local server.
 
+### Recommended model: Pati-4B
+
+Pati-4B is a small model fine-tuned for Pati: setting reminders, remembering what you tell it, opening apps and sites,
+controlling music, taking notes, and short, warm small talk, mostly in Turkish. It is Qwen3.5-4B (Apache-2.0) with a
+LoRA trained on about 1,000 example conversations. It needs about 5 GB of graphics memory (it also runs on the
+processor, slowly). On Pati's own test set it scores 87%, against 54% for the plain Qwen3.5-4B; details in
+[docs/PATI-4B.md](docs/PATI-4B.md). It is made for chat and small tasks, not for long answers, code or facts you
+need to rely on.
+
+1. Download [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) for Windows (the CUDA build for an NVIDIA
+   card, Vulkan for others) and unzip it.
+2. From the [Pati release](https://github.com/tungarix/pati/releases/latest), download the three model files into one
+   folder: `Pati-4B-Q4_K_M-00001-of-00002.gguf`, `Pati-4B-Q4_K_M-00002-of-00002.gguf` (the model, split in two
+   because of GitHub's file size limit; keep both, no joining needed) and `mmproj-4B-F16.gguf` (lets it look at your screen).
+3. In that folder run:
+   `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
+   (with the path to `llama-server.exe` in front if it is not on `PATH`).
+4. Open Pati; it finds the model on port 8080 by itself.
+
 ## Talk by voice
 
 Your voice never leaves your computer: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) turns it into text locally.

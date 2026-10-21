@@ -39,6 +39,24 @@ Pati, bilgisayarındaki OpenAI uyumlu her sunucuyla konuşur. Yaygın portlara (
 - **Ollama:** Kur ve `ollama pull` ile bir model indir; Pati onu 11434 portunda bulur.
 - **LM Studio:** Bir model yükle ve yerel sunucuyu başlat.
 
+### Önerilen model: Pati-4B
+
+Pati-4B, Pati için ince ayar yapılmış küçük bir model: hatırlatıcı kurmak, anlattıklarını hatırlamak, uygulama ve site
+açmak, müziği yönetmek, not almak ve kısa, sıcak sohbet; ağırlıklı olarak Türkçe. Qwen3.5-4B (Apache-2.0) üzerine
+yaklaşık 1.000 örnek konuşmayla eğitilmiş bir LoRA. Ekran kartında yaklaşık 5 GB yer ister (işlemcide de çalışır ama
+yavaştır). Pati'nin kendi ölçüm setinde %87 alıyor, düz Qwen3.5-4B %54; ayrıntılar [docs/PATI-4B.md](docs/PATI-4B.md)
+dosyasında. Sohbet ve küçük işler için yapıldı; uzun cevap, kod ya da güvenmen gereken bilgiler için değil.
+
+1. Windows için [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) indir (NVIDIA kart için CUDA, diğerleri için
+   Vulkan sürümü) ve zip'i aç.
+2. [Pati sürümünden](https://github.com/tungarix/pati/releases/latest) üç model dosyasını aynı klasöre indir:
+   `Pati-4B-Q4_K_M-00001-of-00002.gguf`, `Pati-4B-Q4_K_M-00002-of-00002.gguf` (model; GitHub'ın dosya boyutu sınırı
+   yüzünden ikiye bölündü, ikisini de tut, birleştirmen gerekmez) ve `mmproj-4B-F16.gguf` (ekrana bakabilmesi için).
+3. O klasörde şunu çalıştır:
+   `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
+   (`llama-server.exe` `PATH`'te değilse önüne yolunu yaz).
+4. Pati'yi aç; modeli 8080 portunda kendisi bulur.
+
 ## Sesle konuşma
 
 Ses bilgisayarından çıkmaz: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) ile yerelde yazıya çevrilir.
