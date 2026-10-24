@@ -24,6 +24,8 @@ function ctx(over: Partial<ToolContext> = {}) {
     openUrl: async url => void log.push(`url:${url}`),
     media: async a => void log.push(`media:${a}`),
     openFolder: async w => void log.push(`folder:${w}`),
+    findPaths: async () => [],
+    openPath: async p => void log.push('path:' + p),
     systemStatus: async () => ({ battery: 80 }),
     takeNote: t => void log.push(`note:${t}`),
     ...over,
@@ -94,4 +96,30 @@ test('actions run only after the user agrees, and only safe ones', async () => {
   assert.equal(await runTool('open_app', '{"name":"spotify"}', no), '{"declined":true}')
   assert.deepEqual(said, ['open_app:spotify'])
   assert.match(await runTool('system_status', '', ctx({ allowActions: false }).c), /disabled/)
+})
+
+test('open_path opens the single best match after asking', async () => {
+  const { c, log } = ctx({ findPaths: async () => [{ path: 'C:/D/tungarix.pdf', name: 'tungarix.pdf', isDir: false, score: 2 }, { path: 'C:/D/x tungarix y.pdf', name: 'x tungarix y.pdf', isDir: false, score: 1 }] })
+  const r = JSON.parse(await runTool('open_path', JSON.stringify({ name: 'tungarix dosyasını' }), c))
+  assert.deepEqual(r, { ok: true, opened: 'C:/D/tungarix.pdf', name: 'tungarix.pdf', isDir: false })
+  assert.deepEqual(log, ['path:C:/D/tungarix.pdf'])
+})
+
+test('open_path: not found, tie and declined open nothing', async () => {
+  const hit = (name: string, score: number) => ({ path: 'C:/D/' + name, name, isDir: false, score })
+  let { c, log } = ctx()
+  assert.deepEqual(JSON.parse(await runTool('open_path', '{"name":"yok"}', c)), { error: 'not found' })
+  ;({ c, log } = ctx({ findPaths: async () => [hit('a.pdf', 3), hit('a.docx', 3), hit('ab.pdf', 2)] }))
+  const tie = JSON.parse(await runTool('open_path', '{"name":"a"}', c))
+  assert.equal(tie.ok, false)
+  assert.equal(tie.candidates.length, 2)
+  ;({ c, log } = ctx({ findPaths: async () => [hit('a.pdf', 3)], confirm: async () => false }))
+  assert.deepEqual(JSON.parse(await runTool('open_path', '{"name":"a"}', c)), { declined: true })
+  assert.deepEqual(log, [])
+})
+
+test('open_path never opens a program, even if the finder returns one', async () => {
+  const { c, log } = ctx({ findPaths: async () => [{ path: 'C:/D/tungarix.exe', name: 'tungarix.exe', isDir: false, score: 3 }] })
+  assert.deepEqual(JSON.parse(await runTool('open_path', '{"name":"tungarix"}', c)), { error: 'not found' })
+  assert.deepEqual(log, [])
 })

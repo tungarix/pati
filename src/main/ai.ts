@@ -153,10 +153,42 @@ export async function detectServers(apiKey = ''): Promise<FoundServer[]> {
  * markers. Models write these even when told not to; the balloon prints them raw.
  */
 export function plainText(text: string): string {
-  return stripThinking(text)
+  const LIST = /^[ \t]*(?:[-*•]|\d+\.)[ \t]+/gm
+  let out = stripThinking(text)
     .replace(/\$\$?([^$\n]+?)\$\$?/g, '$1')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1')
-    .trim()
+    .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1/$2')
+    .replace(/\\[()[\]]/g, '')
+    .replace(/`/g, '')
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, '')
+  // A list read aloud is one run of words.
+  if (LIST.test(out)) out = out.replace(LIST, '').replace(/[ \t]*\n+[ \t]*/g, ' ')
+  return out.trim()
+}
+
+/** Lowercase words (2+ letters) of a text, Turkish-folded so "I"/"ı" and "İ"/"i" match. */
+const wordSet = (s: string) => new Set(s.toLocaleLowerCase('tr').match(/[\p{L}\p{N}]{2,}/gu) ?? [])
+
+/** Jaccard overlap of the word sets of two texts: 1 identical, 0 nothing shared. */
+export function similarity(a: string, b: string): number {
+  const x = wordSet(a)
+  const y = wordSet(b)
+  if (!x.size && !y.size) return 1
+  let both = 0
+  for (const w of x) if (y.has(w)) both++
+  return both / (x.size + y.size - both)
+}
+
+/** The highest similarity of an answer to any earlier reply. */
+export const closest = (answer: string, earlier: string[]) => Math.max(0, ...earlier.map(e => similarity(answer, e)))
+
+/** True when the answer is a near-copy of one of the earlier replies. */
+export const isRepeat = (answer: string, earlier: string[], threshold = 0.7) => closest(answer, earlier) >= threshold
+
+/** Removes a leading "Atlas," the model copies from another character's history. */
+export function stripVocative(answer: string, name = 'Atlas'): string {
+  const rest = answer.replace(new RegExp(`^${name}(?:,\\s*|\\s+)`, 'i'), '')
+  return rest === answer || !rest ? answer : rest[0].toLocaleUpperCase('tr') + rest.slice(1)
 }
 
 /** Drops reasoning a thinking model writes before its answer, closed or still open. */
@@ -164,7 +196,7 @@ export function stripThinking(text: string): string {
   return text.replace(/<think>[\s\S]*?(<\/think>|$)/g, '').trimStart()
 }
 
-interface ToolCall {
+export interface ToolCall {
   id: string
   type: 'function'
   function: { name: string; arguments: string }
@@ -172,11 +204,41 @@ interface ToolCall {
 
 type ImagePart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
 
-type WireMessage =
+/** What a conversation may hold: plain turns, a tool call the assistant made, and its result. */
+export type HistoryMessage =
   | ChatMessage
-  | { role: 'user'; content: ImagePart[] }
   | { role: 'assistant'; content: string; tool_calls: ToolCall[] }
   | { role: 'tool'; tool_call_id: string; content: string }
+
+type WireMessage = HistoryMessage | { role: 'user'; content: ImagePart[] }
+
+/** Sent with every request. The llama.cpp-only fields are ignored by Ollama and LM Studio. */
+export const SAMPLING = {
+  temperature: 0.7,
+  top_p: 0.9,
+  min_p: 0.05,
+  presence_penalty: 0.3,
+  frequency_penalty: 0.2,
+  // llama.cpp only sees the last 64 tokens for frequency_penalty; these look further back
+  // so a 4B model stops copying its own earlier replies.
+  repeat_penalty: 1.05,
+  repeat_last_n: 256,
+  dry_multiplier: 0.8,
+  dry_base: 1.75,
+  dry_allowed_length: 3,
+  // llama.cpp refuses -1 here (HTTP 400), so name a window instead.
+  dry_penalty_last_n: 2048,
+}
+
+const STANDARD_SAMPLING = ['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'] as const
+/** Servers that refused the llama.cpp-only fields but answered without them; they get the standard ones only. */
+const plainServers = new Set<string>()
+
+/** Per-call tweaks: `temperature` replaces the default, `note` is added to the first system message. */
+export interface ChatOpts {
+  temperature?: number
+  note?: string
+}
 
 async function complete(
   server: Server,
@@ -184,23 +246,36 @@ async function complete(
   messages: WireMessage[],
   tools: object[],
   signal: AbortSignal,
+  opts: ChatOpts = {},
 ): Promise<{ content?: string | null; tool_calls?: ToolCall[] }> {
-  const res = await fetch(`${trimSlash(server.baseUrl)}/chat/completions`, {
-    method: 'POST',
-    headers: headers(server.apiKey),
-    signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      ...(tools.length ? { tools } : {}),
-      temperature: 0.5,
-      max_tokens: 400,
-      // Without these Qwen-style models on llama.cpp spend the budget thinking
-      // (empty answer) or fall into repetition loops; other servers ignore them.
-      frequency_penalty: 0.5,
-      chat_template_kwargs: { enable_thinking: false },
-    }),
-  })
+  if (opts.note) {
+    const i = messages.findIndex(m => m.role === 'system')
+    if (i >= 0) messages = messages.map((m, j) => (j === i ? { ...m, content: `${m.content}\n\n${opts.note}` } as WireMessage : m))
+  }
+  const send = (sampling: object) =>
+    fetch(`${trimSlash(server.baseUrl)}/chat/completions`, {
+      method: 'POST',
+      headers: headers(server.apiKey),
+      signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        ...(tools.length ? { tools } : {}),
+        ...sampling,
+        ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
+        max_tokens: 400,
+        // Without this Qwen-style models on llama.cpp spend the budget thinking (empty answer).
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+    })
+  const standard = Object.fromEntries(STANDARD_SAMPLING.map(k => [k, SAMPLING[k]]))
+  let res = await send(plainServers.has(server.baseUrl) ? standard : SAMPLING)
+  // A 400 may be one of the extra fields (a llama.cpp build that dislikes a value); try without them once.
+  if (res.status === 400 && !plainServers.has(server.baseUrl)) {
+    const again = await send(standard)
+    if (again.ok) plainServers.add(server.baseUrl)
+    res = again
+  }
   check(res)
   const body = (await res.json()) as { choices?: { message?: { content?: string | null; tool_calls?: ToolCall[] } }[] }
   return body.choices?.[0]?.message ?? {}
@@ -213,18 +288,19 @@ async function complete(
 export async function chatWithTools(
   server: Server,
   model: string,
-  messages: ChatMessage[],
+  messages: HistoryMessage[],
   tools: object[],
   runTool: (name: string, args: string) => Promise<string>,
   signal: AbortSignal,
   maxRounds = 4,
+  opts?: ChatOpts,
 ): Promise<string> {
   const convo: WireMessage[] = [...messages]
   let offered = tools
   for (let round = 0; round < maxRounds; round++) {
     let msg
     try {
-      msg = await complete(server, model, convo, offered, signal)
+      msg = await complete(server, model, convo, offered, signal, opts)
     } catch (err) {
       // Servers started without tool support answer 400/500 to the tools field.
       if (offered.length && err instanceof HttpError && !(err instanceof UnauthorizedError)) {
@@ -239,7 +315,7 @@ export async function chatWithTools(
       convo.push({ role: 'tool', tool_call_id: call.id, content: await runTool(call.function.name, call.function.arguments) })
   }
   // Out of rounds: one last answer with what it has, no more tools.
-  return plainText((await complete(server, model, convo, [], signal)).content ?? '')
+  return plainText((await complete(server, model, convo, [], signal, opts)).content ?? '')
 }
 
 /**

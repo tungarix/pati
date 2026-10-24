@@ -3,7 +3,7 @@
 // match clearly goes to the model as usual.
 
 import type { Lang } from '../shared/types.ts'
-import { cleanAppName, type Folder, type MediaAction } from './actions.ts'
+import { cleanAppName, cleanPathName, type Folder, type MediaAction, type PathRoot } from './actions.ts'
 
 export type Intent =
   | { tool: 'take_note'; args: { text: string } }
@@ -11,15 +11,16 @@ export type Intent =
   | { tool: 'open_folder'; args: { which: Folder } }
   | { tool: 'system_status'; args: Record<string, never> }
   | { tool: 'open_app'; args: { name: string } }
+  | { tool: 'open_path'; args: { name: string; kind: 'file' | 'folder' | 'any'; where?: PathRoot } }
 
 const FOLDER_WORDS: [RegExp, Folder][] = [
-  [/^masa ?üst|^desktop/, 'desktop'],
-  [/^belge|^documents/, 'documents'],
-  [/^indirilen|^downloads/, 'downloads'],
-  [/^resim|^fotoğraf|^pictures|^photos/, 'pictures'],
-  [/^müzik|^music/, 'music'],
-  [/^video/, 'videos'],
-  [/^beyin|^brain/, 'brain'],
+  [/^(?:masa ?üst(?:ü|üm|ümü|ünü|ün)?|desktop)$/, 'desktop'],
+  [/^(?:belgeler(?:im|imi)?|documents)$/, 'documents'],
+  [/^(?:indirilenler(?:im|imi)?|downloads)$/, 'downloads'],
+  [/^(?:resimler(?:im|imi)?|fotoğraflar(?:ım|ımı)?|pictures|photos)$/, 'pictures'],
+  [/^(?:müzik(?:ler(?:im|imi)?)?|music)$/, 'music'],
+  [/^(?:videolar(?:ım|ımı)?|videos)$/, 'videos'],
+  [/^(?:beyin(?:im|imi)?|brain)$/, 'brain'],
 ]
 
 const lower = (s: string) => s.toLocaleLowerCase('tr').trim()
@@ -49,6 +50,13 @@ export function matchIntent(text: string, _lang: Lang): Intent | null {
   const folder = /^(.+?)(?:ımı|imi|umu|ümü|ı|i|u|ü|yı|yi|yu|yü|ni|nı)? (?:klasörünü |klasörümü )?aç$|^open (?:my )?(.+?)(?: folder)?$/.exec(t)
   const name = folder?.[1] ?? folder?.[2]
   if (name) for (const [re, which] of FOLDER_WORDS) if (re.test(name)) return { tool: 'open_folder', args: { which } }
+
+  // A file/folder word, a location prefix or a file extension means a path, not an app.
+  if (/\s(?:aç|açar mısın|açabilir misin)$|^open /.test(t)) {
+    const c = cleanPathName(t)
+    if (c.name && (c.where || c.kind !== 'any' || /\.(?:pdf|docx?|xlsx?|txt|png|jpe?g|mp4|pptx?|zip)$/.test(c.name)))
+      return { tool: 'open_path', args: { name: c.name, kind: c.kind, ...(c.where && { where: c.where }) } }
+  }
 
   // "spotify'ı aç": a short name and an open word. Websites ("youtube'da ... aç") go to the model.
   const app = /^(.+?) (?:uygulamasını |programını )?(?:aç|başlat|çalıştır)(?:[aeıiuü]r m[ıiuü]s[ıiuü]n|[ae]bilir misin)?$/.exec(t)

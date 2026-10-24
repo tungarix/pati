@@ -105,6 +105,8 @@ function fakeTool(calls: ToolRec[]) {
         return JSON.stringify(MEDIA_ACTIONS.includes(str('action') as never) ? { ok: true } : { error: `unknown or disabled tool: ${name}` })
       case 'open_folder':
         return JSON.stringify(FOLDERS.includes(str('which') as never) ? { ok: true } : { error: `unknown or disabled tool: ${name}` })
+      case 'open_path':
+        return JSON.stringify(str('name') ? { ok: true, opened: 'C:\\Users\\x\\Desktop\\rapor.pdf', name: 'rapor.pdf', isDir: false } : { error: `unknown or disabled tool: ${name}` })
       case 'take_note':
         return JSON.stringify(str('text') ? { ok: true } : { error: `unknown or disabled tool: ${name}` })
       case 'system_status':

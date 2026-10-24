@@ -8,14 +8,14 @@ import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut,
 
 import { detectLang, t, type MessageKey } from '../shared/i18n.ts'
 import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
-import { askAboutImage, chatWithTools, detectServers, listModels, systemPrompt, UnauthorizedError, withClock, type ChatMessage } from './ai.ts'
+import { askAboutImage, chatWithTools, closest, detectServers, isRepeat, listModels, stripVocative, systemPrompt, UnauthorizedError, withClock, type HistoryMessage } from './ai.ts'
 import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
-import { appendExchange, appendFeedback, ensureBrain, type FeedbackRecord, getSummary, MEMORY_NOTE, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
+import { appendExchange, appendFeedback, capSummary, dropLooped, ensureBrain, exchangeCount, type FeedbackRecord, getSummary, MEMORY_NOTE, MIN_SUMMARY_EXCHANGES, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
 import { InstallError, LocalModel, withManagedServer } from './localModel.ts'
 import { loadSettings, saveSettings } from './settings.ts'
-import { bestMatch, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
+import { bestMatch, findPaths, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
 import { physicsStep, pixel, throwVelocity, type Body, type Rect } from './physics.ts'
 import { watchWindows } from './windows.ts'
@@ -51,6 +51,10 @@ let chatAbort: AbortController | null = null
 let focus: FocusState = FOCUS_OFF
 /** How much of today's chat the model sees again. */
 const CHAT_MEMORY = 20
+const REPEAT_NOTE = {
+  tr: 'Önceki cevaplarını tekrarlama; bu mesaja farklı, kısa ve doğal bir cevap ver.',
+  en: 'Do not repeat your earlier replies; answer this message differently, briefly and naturally.',
+}
 
 function currentCharacter(): Character {
   return characters.find(c => c.id === settings.characterId) ?? characters[0]
@@ -401,12 +405,12 @@ async function summarizePastDays(server: AiServer, model: string): Promise<void>
   const lang = settings.language
   for (const day of pastDays(brainDir(), new Date(), 3)) {
     const text = transcript(day.md, lang)
-    if (getSummary(day.md) || !text) continue
+    if (getSummary(day.md) || !text || exchangeCount(day.md) < MIN_SUMMARY_EXCHANGES) continue
     try {
       const summary = await chatWithTools(server, model, [{ role: 'system', content: SUMMARY_PROMPT[lang] }, { role: 'user', content: text }], [],
-        async () => '', AbortSignal.timeout(180_000))
+        async () => '', AbortSignal.timeout(180_000), 4, { temperature: 0.2 })
       // Re-read: the day's note may have changed while the model was summarizing.
-      if (summary) fs.writeFileSync(day.file, withSummary(fs.readFileSync(day.file, 'utf8'), lang, summary), 'utf8')
+      if (summary) fs.writeFileSync(day.file, withSummary(fs.readFileSync(day.file, 'utf8'), lang, capSummary(summary)), 'utf8')
     } catch (err) {
       console.error(`summary of ${day.key} failed:`, err)
       return
@@ -462,6 +466,12 @@ function toolContext(): ToolContext {
     },
     media: pressKeys,
     openFolder: async (which: Folder) => void (await shell.openPath(which === 'brain' ? brainDir() : app.getPath(which))),
+    findPaths: (name, kind, where) =>
+      findPaths(name, kind, where ? [app.getPath(where)] : [app.getPath('desktop'), app.getPath('documents'), app.getPath('downloads')]),
+    openPath: async p => {
+      const err = await shell.openPath(p)
+      if (err) throw new Error(err)
+    },
     systemStatus,
     takeNote,
   }
@@ -775,24 +785,49 @@ async function extractFacts(server: AiServer, model: string, text: string, ctx: 
   }
 }
 
+type ToolResult = { ok?: boolean; declined?: boolean; error?: string; opened?: string; name?: string; candidates?: { name: string }[] }
+
+/** What a plain command did: the balloon text, the command that really ran, and its result as a tool turn. */
+interface IntentOutcome {
+  reply: string
+  intent: Intent
+  result: object
+}
+
 /** Carries out a plain command itself and answers from what really happened. */
-async function runIntent(intent: Intent, ctx: ToolContext): Promise<string> {
+async function runIntent(intent: Intent, ctx: ToolContext): Promise<IntentOutcome> {
   const lang = settings.language
-  const result = JSON.parse(await runTool(intent.tool, JSON.stringify(intent.args), ctx)) as { ok?: boolean; declined?: boolean; error?: string }
-  if (result.declined) return t(lang, 'intent.declined')
-  if (result.error && intent.tool === 'open_app') return t(lang, 'intent.noApp', { name: intent.args.name })
-  if (result.error || (!result.ok && intent.tool !== 'system_status')) return t(lang, 'intent.failed')
-  if (intent.tool === 'take_note') return t(lang, 'intent.note', { text: intent.args.text })
-  if (intent.tool === 'open_folder') return t(lang, 'intent.folder', { which: t(lang, `folder.${intent.args.which}`) })
-  if (intent.tool === 'open_app') return t(lang, 'intent.app', { name: (result as unknown as { opened: string }).opened })
+  const run = async (i: Intent) => JSON.parse(await runTool(i.tool, JSON.stringify(i.args), ctx)) as ToolResult
+  let result = await run(intent)
+  // "Open X" is often a file or folder, not an app: look there before giving up.
+  if (intent.tool === 'open_app' && result.error?.startsWith('no installed app matches')) {
+    const asPath: Intent = { tool: 'open_path', args: { name: intent.args.name, kind: 'any' } }
+    const found = await run(asPath)
+    if (!found.error) [intent, result] = [asPath, found]
+  }
+  const done = (reply: string, stored: object = { ok: true }): IntentOutcome => ({ reply, intent, result: stored })
+  if (result.declined) return done(t(lang, 'intent.declined'), { declined: true })
+  if (intent.tool === 'open_path') {
+    if (result.error) return done(t(lang, 'intent.noPath', { name: intent.args.name }), { error: result.error })
+    if (result.candidates) return done(t(lang, 'intent.pathMany', { names: result.candidates.map(c => c.name).join(', ') }), { ok: false })
+    if (result.ok) return done(t(lang, 'intent.path', { name: result.name ?? intent.args.name }))
+  }
+  if (result.error && intent.tool === 'open_app') return done(t(lang, 'intent.noApp', { name: intent.args.name }), { error: result.error })
+  if (result.error || (!result.ok && intent.tool !== 'system_status')) return done(t(lang, 'intent.failed'), { error: result.error ?? 'failed' })
+  if (intent.tool === 'take_note') return done(t(lang, 'intent.note', { text: intent.args.text }))
+  if (intent.tool === 'open_folder') return done(t(lang, 'intent.folder', { which: t(lang, `folder.${intent.args.which}`) }))
+  if (intent.tool === 'open_app') return done(t(lang, 'intent.app', { name: result.opened ?? intent.args.name }))
   if (intent.tool === 'system_status') {
     const s = result as unknown as { battery_percent: number | null; charging: boolean; cpu_percent: number; memory_used_gb: number; memory_total_gb: number }
     const battery = s.battery_percent === null ? t(lang, 'status.noBattery') : t(lang, s.charging ? 'status.charging' : 'status.onBattery', { p: s.battery_percent })
-    return `${battery} ${t(lang, 'status.load', { cpu: s.cpu_percent, used: s.memory_used_gb, total: s.memory_total_gb })}`
+    return done(`${battery} ${t(lang, 'status.load', { cpu: s.cpu_percent, used: s.memory_used_gb, total: s.memory_total_gb })}`)
   }
-  // Asked once above; the extra step for "a lot" needs no second question.
-  for (let i = 1; i < intent.times; i++) await ctx.media(intent.args.action)
-  return t(lang, `intent.${intent.args.action}`)
+  if (intent.tool === 'media_control') {
+    // Asked once above; the extra step for "a lot" needs no second question.
+    for (let i = 1; i < intent.times; i++) await ctx.media(intent.args.action)
+    return done(t(lang, `intent.${intent.args.action}`))
+  }
+  return done(t(lang, 'intent.failed'), { error: 'unhandled' })
 }
 
 function setFocus(next: FocusState): void {
@@ -878,14 +913,18 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
   }
   const intent = settings.ai.tools.actions && mayDiscover ? matchIntent(text, lang) : null
   if (intent) {
-    const reply = await runIntent(intent, ctx)
-    appendExchange(brain, new Date(), lang, currentCharacter().name, text, reply)
+    const { reply, intent: ran, result } = await runIntent(intent, ctx)
+    appendExchange(brain, new Date(), lang, currentCharacter().name, text, reply, { tool: ran.tool, args: ran.args, result })
     return send({ type: 'ai', event: 'done', text: reply })
   }
-  const known = [ctx.allowMemory ? memoryBlock(currentFacts(), lang) : '', pastBlock(pastDays(brain, now, 3), lang)].filter(Boolean).join('\n\n')
-  const messages: ChatMessage[] = [
+  const known = [ctx.allowMemory ? memoryBlock(currentFacts(), lang) : '', pastBlock(pastDays(brain, now, 2), lang)].filter(Boolean).join('\n\n')
+  // A cut can land inside a tool turn; history must open on a user message.
+  const recent = dropLooped(todaysMessages(brain, now)).slice(-CHAT_MEMORY)
+  const history = recent.slice(Math.max(0, recent.findIndex(m => m.role === 'user')))
+  const earlier = history.filter(m => m.role === 'assistant' && m.content).slice(-3).map(m => m.content)
+  const messages: HistoryMessage[] = [
     { role: 'system', content: systemPrompt(currentCharacter().persona[lang], lang, known) },
-    ...todaysMessages(brain, now).slice(-CHAT_MEMORY),
+    ...history,
     { role: 'user', content: withClock(text, lang, now) },
   ]
   for (const [i, server] of settings.ai.servers.entries()) {
@@ -893,8 +932,17 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
       const model = server.model || (await listModels(server.baseUrl, server.apiKey))[0]
       if (!model) continue
       let remembered = false
-      const run = (name: string, args: string) => ((remembered ||= name === 'remember'), runTool(name, args, ctx))
-      const answer = (await chatWithTools(server, model, messages, toolDefinitions(ctx), run, abort.signal)) || '…'
+      let usedTool = false
+      const run = (name: string, args: string) => ((usedTool = true), (remembered ||= name === 'remember'), runTool(name, args, ctx))
+      const defs = toolDefinitions(ctx)
+      let answer = await chatWithTools(server, model, messages, defs, run, abort.signal)
+      // A small model copies its last reply; one hotter retry with a nudge breaks most loops.
+      if (answer && !usedTool && isRepeat(answer, earlier)) {
+        const again = await chatWithTools(server, model, messages, defs, run, abort.signal, 4, { temperature: 0.9, note: REPEAT_NOTE[lang] })
+        if (again && closest(again, earlier) < closest(answer, earlier)) answer = again
+      }
+      if (currentCharacter().id !== 'atlas') answer = stripVocative(answer)
+      answer ||= '…'
       appendExchange(brain, new Date(), lang, currentCharacter().name, text, answer)
       const id = String(Date.now())
       rateable.set(id, { time: new Date().toISOString(), character: currentCharacter().id, model, messages, answer })

@@ -2,7 +2,7 @@
 // app goes through the context, so tests can stand in for it.
 
 import type { Lang } from '../shared/types.ts'
-import { cleanAppName, FOLDERS, MEDIA_ACTIONS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
+import { BLOCKED_EXT, cleanAppName, cleanPathName, FOLDERS, MEDIA_ACTIONS, PATH_ROOTS, websiteUrl, type ActionKind, type Folder, type MediaAction, type PathMatch, type PathRoot } from './actions.ts'
 
 export interface ToolContext {
   lang: Lang
@@ -23,6 +23,9 @@ export interface ToolContext {
   openUrl: (url: string) => Promise<void>
   media: (action: MediaAction) => Promise<void>
   openFolder: (which: Folder) => Promise<void>
+  /** Files/folders on the Desktop, Documents and Downloads named like `name`, best first. */
+  findPaths: (name: string, kind: 'file' | 'folder' | 'any', where?: PathRoot) => Promise<PathMatch[]>
+  openPath: (p: string) => Promise<void>
   systemStatus: () => Promise<object>
   takeNote: (text: string) => void
 }
@@ -66,6 +69,11 @@ export function toolDefinitions(ctx: Pick<ToolContext, 'allowMemory' | 'allowCli
       action: { type: 'string', enum: MEDIA_ACTIONS },
     }, ['action']),
     tool('open_folder', 'Open a folder in File Explorer.', { which: { type: 'string', enum: FOLDERS } }, ['which']),
+    tool('open_path', 'Open a file or folder BY NAME from the Desktop, Documents or Downloads. Use for "X dosyasını aç", "rapor klasörünü aç". For apps use open_app.', {
+      name: { type: 'string', description: 'What the user called it' },
+      kind: { type: 'string', enum: ['file', 'folder', 'any'] },
+      where: { type: 'string', enum: [...PATH_ROOTS] },
+    }, ['name']),
     tool('system_status', 'Battery level, CPU and memory use, and uptime of this computer.'),
     tool('take_note', 'Save a note when the user asks to note, write down or remember a task ("not al", "not et", "yaz bunu", "unutmayayım"). Always call it for such requests; you cannot keep notes without it.', {
       text: { type: 'string' },
@@ -170,6 +178,21 @@ export async function runTool(name: string, rawArgs: string, ctx: ToolContext): 
         if (!(await ctx.confirm('open_folder', which))) return JSON.stringify({ declined: true })
         await ctx.openFolder(which)
         return JSON.stringify({ ok: true })
+      }
+      case 'open_path': {
+        const c = cleanPathName(str('name'))
+        const kind = ['file', 'folder', 'any'].includes(str('kind')) ? (str('kind') as 'file' | 'folder' | 'any') : c.kind
+        const where = PATH_ROOTS.includes(str('where') as PathRoot) ? (str('where') as PathRoot) : c.where
+        if (!ctx.allowActions || !c.name) break
+        // Programs never open by name, whatever the finder returned.
+        const found = (await ctx.findPaths(c.name, kind, where)).filter(m => m.isDir || !BLOCKED_EXT.includes(m.name.slice(m.name.lastIndexOf('.')).toLowerCase()))
+        if (!found.length) return JSON.stringify({ error: 'not found' })
+        const match = found[0]
+        const ties = found.filter(m => m.score === match.score)
+        if (ties.length > 1) return JSON.stringify({ ok: false, candidates: ties.slice(0, 3).map(m => ({ name: m.name, path: m.path, isDir: m.isDir })) })
+        if (!(await ctx.confirm('open_path', match.name))) return JSON.stringify({ declined: true })
+        await ctx.openPath(match.path)
+        return JSON.stringify({ ok: true, opened: match.path, name: match.name, isDir: match.isDir })
       }
       case 'system_status':
         if (!ctx.allowActions) break

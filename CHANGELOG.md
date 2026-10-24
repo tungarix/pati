@@ -2,6 +2,18 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.4.6 (2026-10-24)
+
+### Added
+- Open a file or folder by name: "tungarix dosyasını aç", "ödev klasörünü aç". Pati looks in Desktop, Documents and Downloads (three folders deep), never opens programs or scripts, and asks before opening.
+
+### Fixed
+- "masaüstündeki tungarix dosyasını aç" opened the Desktop folder, and "tungarix dosyasını aç" looked for an app with that name. Plain commands now tell files and folders from apps; a name that is no app is searched as a file.
+- Pati answered the same question with the same sentence again and again. Sampling now looks further back (min-p, repeat and DRY penalties), an answer that copies one of the last three is asked for again once, and a looped earlier reply is dropped from the history the model sees.
+- Plain commands (open an app, volume, note) now enter the chat history as the tool call they were, like the model was trained, instead of loose text.
+- Day summaries are skipped for days with fewer than 4 chats, capped at 250 characters, and only the last 2 days are brought back.
+- Lists, headings, back-ticks and LaTeX marks in an answer are cleaned, and a leading "Atlas," is dropped when the character is not Atlas.
+- A llama.cpp server that refuses one of the extra sampling fields no longer breaks the chat: Pati asks again with the standard fields and remembers it.
 ## 0.4.5 (2026-10-21)
 
 ### Added

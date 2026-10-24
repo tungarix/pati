@@ -67,3 +67,17 @@ test('questions about the screen are recognised, other mentions of it are not', 
   assert.equal(matchScreen('yeni ekran kartı almalı mıyım'), null)
   assert.equal(matchScreen('ekranım çok parlak'), null)
 })
+
+test('files and folders by name are not apps and not the Desktop', () => {
+  assert.deepEqual(m('masaüstündeki tungarix dosyasını aç'), { tool: 'open_path', args: { name: 'tungarix', kind: 'file', where: 'desktop' } })
+  assert.deepEqual(m('tungarix dosyasını aç'), { tool: 'open_path', args: { name: 'tungarix', kind: 'file' } })
+  assert.deepEqual(m('tungarix adlı dosyayı aç'), { tool: 'open_path', args: { name: 'tungarix', kind: 'file' } })
+  assert.deepEqual(m('tungarix dosya aç'), { tool: 'open_path', args: { name: 'tungarix', kind: 'file' } })
+  assert.deepEqual(m('ödev klasörünü aç'), { tool: 'open_path', args: { name: 'ödev', kind: 'folder' } })
+  assert.deepEqual(m("'rapor' dosyasını aç"), { tool: 'open_path', args: { name: 'rapor', kind: 'file' } })
+  assert.deepEqual(m('rapor.pdf aç'), { tool: 'open_path', args: { name: 'rapor.pdf', kind: 'any' } })
+  assert.deepEqual(m('masaüstünü aç'), { tool: 'open_folder', args: { which: 'desktop' } })
+  assert.deepEqual(m('belgelerimi aç'), { tool: 'open_folder', args: { which: 'documents' } })
+  assert.deepEqual(m("spotify'ı aç"), { tool: 'open_app', args: { name: 'spotify' } })
+  assert.deepEqual(m('visual studio code aç'), { tool: 'open_app', args: { name: 'visual studio code' } })
+})

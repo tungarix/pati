@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import type { Lang } from '../shared/types.ts'
-import type { ChatMessage } from './ai.ts'
+import type { ChatMessage, HistoryMessage } from './ai.ts'
 
 // Language-neutral names: switching the app language must not lose the brain.
 export const CHATS_DIR = 'Chats'
@@ -55,14 +55,25 @@ export function ensureBrain(dir: string, lang: Lang): void {
 
 const read = (file: string) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '')
 
+/** A plain command the pet ran itself; kept so the model later sees it as a real tool turn. */
+export interface IntentRecord {
+  tool: string
+  args: object
+  result?: object
+}
+
+const INTENT_LINE = /^<!-- pati-intent: (.*) -->$/m
+
 /** Appends one exchange under a time heading; starts the day's note if needed. */
-export function appendExchange(dir: string, now: Date, lang: Lang, petName: string, user: string, answer: string): void {
+export function appendExchange(dir: string, now: Date, lang: Lang, petName: string, user: string, answer: string, intent?: IntentRecord): void {
   const file = dayFile(dir, now)
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const head = fs.existsSync(file) ? '' : `# ${dayKey(now)}\n`
   // One line per message keeps the note readable and the parser simple.
   const flat = (s: string) => s.replace(/\s*\n+\s*/g, ' ').trim()
-  fs.appendFileSync(file, `${head}\n### ${time}\n**${LABEL[lang].you}:** ${flat(user)}\n\n**${petName}:** ${flat(answer)}\n`, 'utf8')
+  // The comment is invisible in Obsidian's reading view; ">" keeps a stray "-->" from closing it early.
+  const mark = intent ? `<!-- pati-intent: ${JSON.stringify(intent).replaceAll('>', '\\u003e')} -->\n` : ''
+  fs.appendFileSync(file, `${head}\n### ${time}\n**${LABEL[lang].you}:** ${flat(user)}\n\n**${petName}:** ${flat(answer)}\n${mark}`, 'utf8')
 }
 
 /** The exchanges of a day note as chat messages: in each block the first speaker is the user. */
@@ -74,6 +85,49 @@ export function parseExchanges(md: string): ChatMessage[] {
     out.push({ role: 'user', content: lines[0] }, { role: 'assistant', content: lines[1] })
   }
   return out
+}
+
+/**
+ * Like parseExchanges, but an exchange that carries a pati-intent line comes back as the
+ * turn format the model was trained on: user, assistant tool call, tool result, reply.
+ */
+export function parseHistory(md: string): HistoryMessage[] {
+  const out: HistoryMessage[] = []
+  let n = 0
+  for (const block of md.split(/^### .*$/m).slice(1)) {
+    const lines = [...block.matchAll(/^\*\*[^*]+:\*\* (.*)$/gm)].map(m => m[1].trim())
+    if (lines.length < 2) continue
+    out.push({ role: 'user', content: lines[0] })
+    let intent: IntentRecord | undefined
+    try {
+      intent = JSON.parse(INTENT_LINE.exec(block)?.[1] ?? 'null') ?? undefined
+    } catch {
+      // A hand-edited comment is just ignored.
+    }
+    if (intent?.tool) {
+      const id = `call_${++n}`
+      out.push(
+        { role: 'assistant', content: '', tool_calls: [{ id, type: 'function', function: { name: intent.tool, arguments: JSON.stringify(intent.args ?? {}) } }] },
+        { role: 'tool', tool_call_id: id, content: JSON.stringify(intent.result ?? { ok: true }) },
+      )
+    }
+    out.push({ role: 'assistant', content: lines[1] })
+  }
+  return out
+}
+
+/**
+ * Drops earlier turns whose reply a later turn repeats word for word, with their user
+ * message, so the model does not see itself looping and copy the loop.
+ */
+export function dropLooped(history: HistoryMessage[]): HistoryMessage[] {
+  const turns: HistoryMessage[][] = []
+  for (const m of history) {
+    if (m.role === 'user' || !turns.length) turns.push([m])
+    else turns[turns.length - 1].push(m)
+  }
+  const reply = (t: HistoryMessage[]) => t[t.length - 1].content
+  return turns.filter((t, i) => !turns.slice(i + 1).some(later => reply(later) === reply(t))).flat()
 }
 
 export function getSummary(md: string): string {
@@ -117,8 +171,8 @@ export function pastDays(dir: string, today: Date, limit: number): Day[] {
 }
 
 /** Today's exchanges, so a restarted pet still knows what was just said. */
-export function todaysMessages(dir: string, now: Date): ChatMessage[] {
-  return parseExchanges(read(dayFile(dir, now)))
+export function todaysMessages(dir: string, now: Date): HistoryMessage[] {
+  return parseHistory(read(dayFile(dir, now)))
 }
 
 /** The prompt block that lets the pet remember earlier days. */
@@ -130,8 +184,23 @@ export function pastBlock(days: Day[], lang: Lang): string {
 }
 
 export const SUMMARY_PROMPT: Record<Lang, string> = {
-  tr: 'Aşağıdaki sohbeti 2-4 cümleyle özetle. Kullanıcının neden bahsettiğini, nasıl hissettiğini ve açık kalan bir plan ya da soru varsa onu yaz. Üçüncü şahısla, düz metin olarak yaz; selamlama ya da yorum ekleme.',
-  en: 'Summarize the chat below in 2-4 sentences: what the user talked about, how they felt, and any plan or question left open. Third person, plain text, no greeting or commentary.',
+  tr: 'Aşağıdaki sohbeti en fazla 2 kısa, sade Türkçe cümleyle özetle: kullanıcı ne anlattı, açık kalan bir plan ya da soru var mı. Üçüncü şahısla, düz metin yaz; asistanın adını, alıntıyı, selamlamayı ve yorumu ekleme.',
+  en: 'Summarize the chat below in at most 2 short, plain English sentences: what the user talked about and any plan or question left open. Third person, plain text; no name of the assistant, no quotes, no greeting or commentary.',
+}
+
+/** A day with fewer exchanges than this has nothing worth summarizing. */
+export const MIN_SUMMARY_EXCHANGES = 4
+export const SUMMARY_MAX_CHARS = 250
+
+export const exchangeCount = (md: string) => parseExchanges(md).length / 2
+
+/** A summary cut to at most `max` characters, at a sentence end if there is one, else a word end. */
+export function capSummary(text: string, max = SUMMARY_MAX_CHARS): string {
+  const s = text.replace(/\s+/g, ' ').trim()
+  if (s.length <= max) return s
+  const cut = s.slice(0, max)
+  const end = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'))
+  return end >= max / 3 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(' ') > 0 ? cut.lastIndexOf(' ') : max)
 }
 
 /** A day's exchanges as plain text for the summarizer. */
@@ -147,7 +216,7 @@ export interface FeedbackRecord {
   time: string
   character: string
   model: string
-  messages: ChatMessage[]
+  messages: HistoryMessage[]
   answer: string
   rating: 'up' | 'down'
 }
