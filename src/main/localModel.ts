@@ -24,10 +24,14 @@ export interface Manifest {
   zip: ModelFile
   /** The model's first shard (what `-m` gets), the second shard, and the `mmproj*` vision file. */
   model: ModelFile[]
+  /** An earlier model set that is still good to run: kept working, never downloaded again, dropped once `model` is complete. */
+  legacy?: ModelFile[]
 }
 
-const RELEASE = 'https://github.com/tungarix/pati/releases/download/pati-4b-v1/'
-const file = (name: string, size: number, sha256: string, url = RELEASE + name): ModelFile => ({ name, url, size, sha256 })
+const RELEASE_V1 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v1/'
+const RELEASE_V3 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v3/'
+const file = (name: string, size: number, sha256: string, url = RELEASE_V3 + name): ModelFile => ({ name, url, size, sha256 })
+const MMPROJ = file('mmproj-4B-F16.gguf', 672423616, 'cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864', RELEASE_V1 + 'mmproj-4B-F16.gguf')
 
 export const MANIFEST: Manifest = {
   zip: file(
@@ -37,9 +41,15 @@ export const MANIFEST: Manifest = {
     'https://github.com/ggml-org/llama.cpp/releases/download/b11799/llama-b11799-bin-win-vulkan-x64.zip',
   ),
   model: [
-    file('Pati-4B-Q4_K_M-00001-of-00002.gguf', 1901243136, '85beb3a5013cfe300f834a26526fca4da666a48cd341d6a141672817f3695179'),
-    file('Pati-4B-Q4_K_M-00002-of-00002.gguf', 807561120, 'bcd6553508354f8d91b45d555786f55196ea2b0380f3382f7ecd8469b34e593b'),
-    file('mmproj-4B-F16.gguf', 672423616, 'cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864'),
+    file('Pati-4B-v3-Q4_K_M-00001-of-00002.gguf', 1901243232, '832250202dca759d726827a233f27c34e2ddbfbbf3cc6c3b61fa6ea152087e0c'),
+    file('Pati-4B-v3-Q4_K_M-00002-of-00002.gguf', 807561120, '0eb187efe46f60acd71115fa39d0937b7a7f271834b7bd9eb02d47746e7b2534'),
+    MMPROJ,
+  ],
+  // Pati 0.4.5/0.4.6 installs hold v1; they keep running it until the user reinstalls (Settings > AI > Pati-4B > Remove, Install).
+  legacy: [
+    file('Pati-4B-Q4_K_M-00001-of-00002.gguf', 1901243136, '85beb3a5013cfe300f834a26526fca4da666a48cd341d6a141672817f3695179', RELEASE_V1 + 'Pati-4B-Q4_K_M-00001-of-00002.gguf'),
+    file('Pati-4B-Q4_K_M-00002-of-00002.gguf', 807561120, 'bcd6553508354f8d91b45d555786f55196ea2b0380f3382f7ecd8469b34e593b', RELEASE_V1 + 'Pati-4B-Q4_K_M-00002-of-00002.gguf'),
+    MMPROJ,
   ],
 }
 
@@ -131,9 +141,17 @@ export class LocalModel {
   }
   private llamaReady = () => this.sizeOf(path.join('llama', EXE)) >= 0
 
+  private complete = (files: ModelFile[]) => files.every(f => this.sizeOf(f.name) === f.size)
+
+  /** The model set to run: the current one when complete, else a complete older one, else none. */
+  private active(): ModelFile[] | null {
+    const { model, legacy } = this.manifest
+    return this.complete(model) ? model : legacy && this.complete(legacy) ? legacy : null
+  }
+
   status(): Status {
     const { zip, model } = this.manifest
-    if (this.llamaReady() && model.every(f => this.sizeOf(f.name) === f.size)) return 'installed'
+    if (this.llamaReady() && this.active()) return 'installed'
     const any = [zip, ...model].some(f => this.sizeOf(f.name) >= 0 || this.sizeOf(f.name + '.part') >= 0)
     return any || this.llamaReady() ? 'partial' : 'not-installed'
   }
@@ -165,6 +183,9 @@ export class LocalModel {
       if (isZip) await this.extract()
       done += f.size
     }
+    // The current set is complete: the older one's shards (same names never overlap, mmproj is shared) are dead weight.
+    const keep = new Set(this.manifest.model.map(f => f.name))
+    for (const f of this.manifest.legacy ?? []) if (!keep.has(f.name)) fs.rmSync(this.p(f.name), { force: true })
   }
 
   private async download(f: ModelFile, before: number, total: number, onProgress: (p: Progress) => void, signal: AbortSignal): Promise<void> {
@@ -242,8 +263,9 @@ export class LocalModel {
   private async boot(): Promise<string> {
     const port = await freePort()
     const base = `http://127.0.0.1:${port}`
-    const mmproj = this.manifest.model.find(f => f.name.startsWith('mmproj'))
-    const args = ['-m', this.p(this.manifest.model[0].name), ...(mmproj ? ['--mmproj', this.p(mmproj.name)] : []), '--jinja', '-ngl', '99', '--ctx-size', '16384', '--parallel', '1', '--host', '127.0.0.1', '--port', String(port)]
+    const set = this.active() ?? this.manifest.model
+    const mmproj = set.find(f => f.name.startsWith('mmproj'))
+    const args = ['-m', this.p(set[0].name), ...(mmproj ? ['--mmproj', this.p(mmproj.name)] : []), '--jinja', '-ngl', '99', '--ctx-size', '16384', '--parallel', '1', '--host', '127.0.0.1', '--port', String(port)]
     // Only the last run's log is kept.
     const log = fs.openSync(this.p('llama-server.log'), 'w')
     const child = spawn(this.p('llama', EXE), args, { cwd: this.p('llama'), windowsHide: true, stdio: ['ignore', log, log] })

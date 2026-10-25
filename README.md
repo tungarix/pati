@@ -43,8 +43,8 @@ Pati talks to any OpenAI-compatible server on your computer. It looks on the usu
 
 Pati-4B is a small model fine-tuned for Pati: setting reminders, remembering what you tell it, opening apps and sites,
 controlling music, taking notes, and short, warm small talk, mostly in Turkish. It is Qwen3.5-4B (Apache-2.0) with a
-LoRA trained on about 1,000 example conversations. It needs about 5 GB of graphics memory (it also runs on the
-processor, slowly). On Pati's own test set it scores 87%, against 54% for the plain Qwen3.5-4B; details in
+LoRA trained on about 1,200 example conversations. It needs about 5 GB of graphics memory (it also runs on the
+processor, slowly). On Pati's own test set (158 cases) it scores 82%, against 67% for the first Pati-4B; details in
 [docs/PATI-4B.md](docs/PATI-4B.md). It is made for chat and small tasks, not for long answers, code or facts you
 need to rely on.
 
@@ -53,9 +53,11 @@ It downloads with progress, checks the files, starts the model when Pati starts 
 `%LOCALAPPDATA%\Pati\model`; **Remove** in the same place deletes them.
 
 **Advanced / do it yourself:** download [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (CUDA build for an
-NVIDIA card, Vulkan for others) and, from the [`pati-4b-v1` release](https://github.com/tungarix/pati/releases/tag/pati-4b-v1),
-the three model files into one folder, then run
-`llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`.
+NVIDIA card, Vulkan for others) and, from the [`pati-4b-v3` release](https://github.com/tungarix/pati/releases/tag/pati-4b-v3),
+the two model files `Pati-4B-v3-Q4_K_M-0000{1,2}-of-00002.gguf` plus `mmproj-4B-F16.gguf` (from the
+[`pati-4b-v1` release](https://github.com/tungarix/pati/releases/tag/pati-4b-v1); the vision file did not change) into one
+folder, then run
+`llama-server -m Pati-4B-v3-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`.
 Pati finds it on port 8080 by itself.
 
 ## Talk by voice

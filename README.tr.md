@@ -43,8 +43,8 @@ Pati, bilgisayarındaki OpenAI uyumlu her sunucuyla konuşur. Yaygın portlara (
 
 Pati-4B, Pati için ince ayar yapılmış küçük bir model: hatırlatıcı kurmak, anlattıklarını hatırlamak, uygulama ve site
 açmak, müziği yönetmek, not almak ve kısa, sıcak sohbet; ağırlıklı olarak Türkçe. Qwen3.5-4B (Apache-2.0) üzerine
-yaklaşık 1.000 örnek konuşmayla eğitilmiş bir LoRA. Ekran kartında yaklaşık 5 GB yer ister (işlemcide de çalışır ama
-yavaştır). Pati'nin kendi ölçüm setinde %87 alıyor, düz Qwen3.5-4B %54; ayrıntılar [docs/PATI-4B.md](docs/PATI-4B.md)
+yaklaşık 1.200 örnek konuşmayla eğitilmiş bir LoRA. Ekran kartında yaklaşık 5 GB yer ister (işlemcide de çalışır ama
+yavaştır). Pati'nin kendi ölçüm setinde (158 vaka) %82 alıyor, ilk Pati-4B %67; ayrıntılar [docs/PATI-4B.md](docs/PATI-4B.md)
 dosyasında. Sohbet ve küçük işler için yapıldı; uzun cevap, kod ya da güvenmen gereken bilgiler için değil.
 
 Pati ilk açılışta indirmeyi önerir (llama.cpp ile birlikte yaklaşık 3,4 GB) ya da **Ayarlar > Yapay zekâ > Pati-4B > İndir ve kur**
@@ -52,8 +52,10 @@ de. İlerlemeyi gösterir, dosyaları doğrular, Pati açılınca modeli başlat
 `%LOCALAPPDATA%\Pati\model` klasörüne iner; aynı yerdeki **Kaldır** onları siler.
 
 **Gelişmiş / kendin kur:** [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) indir (NVIDIA kart için CUDA, diğerleri
-için Vulkan sürümü) ve [`pati-4b-v1` sürümünden](https://github.com/tungarix/pati/releases/tag/pati-4b-v1) üç model dosyasını aynı
-klasöre al, sonra `llama-server -m Pati-4B-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
+için Vulkan sürümü) ve [`pati-4b-v3` sürümünden](https://github.com/tungarix/pati/releases/tag/pati-4b-v3) iki model dosyasını
+(`Pati-4B-v3-Q4_K_M-0000{1,2}-of-00002.gguf`), ayrıca [`pati-4b-v1` sürümünden](https://github.com/tungarix/pati/releases/tag/pati-4b-v1)
+`mmproj-4B-F16.gguf` dosyasını (görme dosyası değişmedi) aynı klasöre al, sonra
+`llama-server -m Pati-4B-v3-Q4_K_M-00001-of-00002.gguf --mmproj mmproj-4B-F16.gguf --jinja -ngl 99 --port 8080`
 çalıştır. Pati modeli 8080 portunda kendisi bulur.
 
 ## Sesle konuşma

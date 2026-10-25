@@ -106,6 +106,28 @@ test('a network failure keeps the .part file; aborting reports "aborted"', async
   s.close()
 })
 
+test('an older complete model set keeps working, and is dropped once the current set is installed', async () => {
+  const old = crypto.randomBytes(120_000)
+  const withLegacy: Manifest = { ...manifest, legacy: [entry('old.gguf', old), manifest.model[1]] }
+  const dir = tmp()
+  fs.mkdirSync(path.join(dir, 'llama'))
+  fs.writeFileSync(path.join(dir, 'llama', 'llama-server.exe'), 'fake exe')
+  fs.writeFileSync(path.join(dir, 'old.gguf'), old)
+  fs.writeFileSync(path.join(dir, 'mmproj.gguf'), bodies['mmproj.gguf'])
+  const s = await serve()
+  const m = new LocalModel({ dir, manifest: withLegacy, mirror: s.mirror, statfs: roomy })
+  assert.equal(m.status(), 'installed') // the v1 files alone are enough
+  fs.rmSync(path.join(dir, 'mmproj.gguf'))
+  assert.equal(m.status(), 'partial') // a broken old set is not
+  fs.writeFileSync(path.join(dir, 'mmproj.gguf'), bodies['mmproj.gguf'])
+  await m.install(() => {}, never) // reinstalling fetches the current shard only
+  s.close()
+  assert.deepEqual(s.requests.map(r => r.name), ['a.gguf'])
+  assert.ok(!fs.existsSync(path.join(dir, 'old.gguf')), 'old shard removed')
+  assert.ok(fs.existsSync(path.join(dir, 'mmproj.gguf')), 'the shared vision file stays')
+  assert.equal(m.status(), 'installed')
+})
+
 test('uninstall removes everything', async () => {
   const s = await serve()
   const dir = tmp()
