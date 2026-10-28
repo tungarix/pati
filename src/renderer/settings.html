@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'">
   <title>Pati</title>
   <link rel="stylesheet" href="settings.css">
 </head>
@@ -72,6 +72,10 @@
       <button id="brain-choose" type="button" data-i18n="settings.brainChoose"></button>
     </div>
     <p class="muted" id="brain-status" role="status"></p>
+    <h3 data-i18n="settings.feedback"></h3>
+    <p class="muted" data-i18n="settings.feedbackHelp"></p>
+    <p id="feedback-count"></p>
+    <button id="feedback-open" type="button" data-i18n="settings.feedbackOpen"></button>
   </section>
 
   <section>
@@ -89,9 +93,25 @@
     <div class="grid">
       <label><span data-i18n="settings.voice"></span> <select id="voice"></select></label>
       <label><span data-i18n="settings.rate"></span> <input type="range" id="rate" min="0.5" max="2" step="0.1"></label>
-      <label><span data-i18n="settings.pitch"></span> <input type="range" id="pitch" min="0" max="2" step="0.1"></label>
+      <label><span data-i18n="settings.pitch"></span> <input type="range" id="pitch" min="0" max="2" step="0.1"> <span class="muted" id="pitch-hint" data-i18n="settings.pitchPiper" hidden></span></label>
     </div>
     <button id="try-voice" type="button" data-i18n="settings.tryVoice"></button>
+    <p class="muted" data-i18n="settings.piperHelp"></p>
+    <details>
+      <summary data-i18n="settings.piperAdvanced"></summary>
+    <h3 data-i18n="settings.piper"></h3>
+    <p><code id="piper-exe"></code></p>
+    <div class="row">
+      <button id="piper-choose" type="button" data-i18n="settings.voiceChoose"></button>
+      <button id="piper-auto" type="button" data-i18n="settings.voiceAuto"></button>
+    </div>
+    <h3 data-i18n="settings.piperVoice"></h3>
+    <p><code id="piper-voice"></code></p>
+    <div class="row">
+      <button id="piper-voice-choose" type="button" data-i18n="settings.voiceChoose"></button>
+      <button id="piper-voice-auto" type="button" data-i18n="settings.voiceAuto"></button>
+    </div>
+    </details>
   </section>
 
   <section>
@@ -114,6 +134,11 @@
       <button id="voice-model-auto" type="button" data-i18n="settings.voiceAuto"></button>
     </div>
     <p class="muted" data-i18n="settings.voiceHelp"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="settings.updates"></h2>
+    <label class="check"><input type="checkbox" id="updates-check"> <span data-i18n="settings.updatesCheck"></span></label>
   </section>
 
   <section>

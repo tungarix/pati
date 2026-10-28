@@ -1,6 +1,6 @@
 {
   "name": "pati",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Masaüstünde yaşayan, konuşan, hatırlatan ve tamamen özelleştirilebilen maskot.",
   "main": "dist/main.js",
   "author": "Arda",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "eval": "node eval/run.ts",
-    "dist": "npm run build && electron-builder --win nsis"
+    "dist": "npm run build && node scripts/fetch-piper.mjs && electron-builder --win nsis"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -22,6 +22,11 @@
     "typescript": "^5.6.3"
   },
   "build": {
+    "publish": {
+      "provider": "github",
+      "owner": "tungarix",
+      "repo": "pati"
+    },
     "appId": "com.arda.pati",
     "productName": "Pati",
     "electronDist": "node_modules/electron/dist",
@@ -33,6 +38,12 @@
       "characters/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/piper",
+        "to": "piper"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico"
@@ -42,5 +53,8 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Pati"
     }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

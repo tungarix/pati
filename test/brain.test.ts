@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { appendExchange, appendFeedback, capSummary, dayFile, dropLooped, exchangeCount, FEEDBACK_FILE, ensureBrain, getSummary, parseExchanges, parseHistory, pastBlock, pastDays, todaysMessages, withSummary } from '../src/main/brain.ts'
+import { appendExchange, appendFeedback, capSummary, countFeedback, dayFile, dropLooped, exchangeCount, FEEDBACK_FILE, ensureBrain, getSummary, parseExchanges, parseHistory, pastBlock, pastDays, todaysMessages, withSummary } from '../src/main/brain.ts'
 
 const brain = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pati-brain-'))
@@ -58,6 +58,26 @@ test('rated answers pile up in Feedback.jsonl, one per line', () => {
   const rows = fs.readFileSync(path.join(dir, FEEDBACK_FILE), 'utf8').trim().split('\n').map(l => JSON.parse(l))
   assert.deepEqual(rows.map(r => [r.answer, r.rating]), [['Merhaba!', 'up'], ['Ne?', 'down']])
   assert.deepEqual(rows[0].messages, base.messages)
+})
+
+test('a correction is written as better, and left out when there is none', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pati-fb-'))
+  const base = { time: 't', character: 'atlas', model: 'm', messages: [], answer: 'Ne?', rating: 'down' as const }
+  appendFeedback(dir, { ...base, better: 'Merhaba!' })
+  appendFeedback(dir, base)
+  const rows = fs.readFileSync(path.join(dir, FEEDBACK_FILE), 'utf8').trim().split('\n').map(l => JSON.parse(l))
+  assert.equal(rows[0].better, 'Merhaba!')
+  assert.equal('better' in rows[1], false)
+})
+
+test('feedback is counted per rating, and a missing file counts as zero', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pati-fb-'))
+  assert.deepEqual(countFeedback(dir), { up: 0, down: 0 })
+  const base = { time: 't', character: 'atlas', model: 'm', messages: [], answer: 'a' }
+  appendFeedback(dir, { ...base, rating: 'up' })
+  appendFeedback(dir, { ...base, rating: 'up' })
+  appendFeedback(dir, { ...base, answer: 'rating":"up', rating: 'down' })
+  assert.deepEqual(countFeedback(dir), { up: 2, down: 1 })
 })
 
 test('a plain command is stored with an invisible intent line and read back as a tool turn', () => {

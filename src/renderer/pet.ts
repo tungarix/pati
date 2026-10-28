@@ -124,10 +124,51 @@ function pickVoice(): SpeechSynthesisVoice | null {
   return voices.find(v => v.lang.toLowerCase() === lang) ?? voices.find(v => v.lang.toLowerCase().startsWith(lang.slice(0, 2))) ?? null
 }
 
-function speak(text: string) {
+let piperAudio: HTMLAudioElement | null = null
+let speakId = 0
+
+function stopSpeaking() {
+  speakId++ // a Piper synthesis still running must not play afterwards
   speechSynthesis.cancel()
+  if (piperAudio) (piperAudio.pause(), piperAudio.dispatchEvent(new Event('ended')))
+}
+
+/** Piper's voice when it is installed; false = nothing played, use the Windows voice. */
+async function speakWithPiper(text: string, mine: () => boolean): Promise<boolean> {
+  const bytes = await api.tts(text).catch(() => null)
+  if (!bytes || !mine()) return !!bytes // a newer speak() took over
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
+  const audio = new Audio(url)
+  const end = () => {
+    URL.revokeObjectURL(url)
+    isSpeaking = false
+    if (piperAudio === audio) piperAudio = null
+  }
+  audio.addEventListener('play', () => (isSpeaking = true))
+  audio.addEventListener('ended', end, { once: true })
+  audio.addEventListener('error', end, { once: true })
+  piperAudio = audio
+  try {
+    await audio.play()
+  } catch {
+    end()
+    return false
+  }
+  return true
+}
+
+async function speak(text: string) {
+  stopSpeaking()
   if (!settings.speech.enabled) return
-  const u = new SpeechSynthesisUtterance(text.replace(/[“”"…]/g, ''))
+  const id = ++speakId
+  const clean = text.replace(/[“”"…]/g, '')
+  if (await speakWithPiper(clean, () => id === speakId)) return
+  if (id !== speakId) return
+  speakWindows(clean)
+}
+
+function speakWindows(text: string) {
+  const u = new SpeechSynthesisUtterance(text)
   const voice = pickVoice()
   if (voice) u.voice = voice
   u.lang = voice?.lang ?? character.voice.lang
@@ -162,8 +203,9 @@ function say(text: string, buttons: Button[] = [], seconds = 8, withVoice = true
 function closeBalloon() {
   stopListening?.(false)
   balloon.hidden = true
-  speechSynthesis.cancel()
+  stopSpeaking()
   if (isChatting) api.aiStop()
+  finishDown()
   setChat(false)
 }
 
@@ -221,7 +263,7 @@ function sendChat(text: string) {
   showTyping()
   waitingSince = Date.now()
   balloonUntil = Date.now() + 120_000
-  speechSynthesis.cancel()
+  stopSpeaking()
   if (isAskingKey) {
     setKeyMode(false)
     api.aiKey(text)
@@ -266,14 +308,44 @@ function addRating(id: string) {
     b.title = tr(rating === 'up' ? 'chat.rateUp' : 'chat.rateDown')
     b.setAttribute('aria-label', b.title)
     b.onclick = () => {
-      api.rate(id, rating)
       b.classList.add('chosen')
       row.querySelectorAll('button').forEach(x => (x.disabled = true))
+      if (rating === 'up') return api.rate(id, 'up')
+      finishDown()
+      askBetter(id)
     }
     row.append(b)
   }
   thread.append(row)
   thread.scrollTop = thread.scrollHeight
+}
+
+/** The 👎 waits here for the optional "how should it have been?"; rating and correction go out together. */
+let pendingDown: { id: string; box: HTMLFormElement; input: HTMLInputElement } | null = null
+
+function askBetter(id: string) {
+  const box = document.createElement('form')
+  box.className = 'better'
+  const input = document.createElement('input')
+  input.placeholder = tr('chat.rateBetter')
+  input.maxLength = 2000
+  const send = document.createElement('button')
+  send.textContent = tr('chat.rateSend')
+  box.append(input, send)
+  box.onsubmit = e => (e.preventDefault(), finishDown())
+  input.onkeydown = e => e.key === 'Escape' && (e.stopPropagation(), (input.value = ''), finishDown())
+  pendingDown = { id, box, input }
+  thread.append(box)
+  thread.scrollTop = thread.scrollHeight
+  input.focus()
+}
+
+function finishDown() {
+  if (!pendingDown) return
+  const { id, box, input } = pendingDown
+  pendingDown = null
+  api.rate(id, 'down', input.value.trim() || undefined)
+  box.remove()
 }
 
 // ---- Motion: life between the frames -----------------------------------------------
@@ -375,7 +447,7 @@ function toggleListening() {
 
 async function startListening() {
   if (!isChatting) openChat()
-  speechSynthesis.cancel()
+  stopSpeaking()
   balloonUntil = Date.now() + 120_000
   let stream: MediaStream
   try {
@@ -435,12 +507,12 @@ async function startListening() {
 chatMic.addEventListener('click', e => (e.stopPropagation(), toggleListening()))
 
 /** An action waiting for the user's OK, shown inside the chat with three answers. */
-function askConfirm(id: string, text: string, yesNo = false) {
+function askConfirm(id: string, text: string, yesNo = false, later = false) {
   if (!isChatting) openChat()
   const b = addBubble('pet', text)
   const row = document.createElement('div')
   row.className = 'buttons'
-  const answers: [string, 'yes' | 'always' | 'no'][] = [[tr('confirm.yes'), 'yes'], [tr('confirm.always'), 'always'], [tr('confirm.no'), 'no']]
+  const answers: [string, 'yes' | 'always' | 'no'][] = [[tr('confirm.yes'), 'yes'], [tr('confirm.always'), 'always'], [tr(later ? 'confirm.later' : 'confirm.no'), 'no']]
   for (const [label, answer] of answers.filter(([, a]) => !(yesNo && a === 'always'))) {
     const btn = document.createElement('button')
     btn.textContent = label
@@ -647,7 +719,7 @@ api.onCommand((cmd: PetCommand) => {
     if (cmd.impact > 0) motion.squash.v -= 17 * Math.min(0.3, cmd.impact / 4000)
   }
   else if (cmd.type === 'ai') onAi(cmd.event, cmd.text, cmd.event === 'done' ? cmd.id : undefined)
-  else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text, cmd.yesNo)
+  else if (cmd.type === 'confirm') askConfirm(cmd.id, cmd.text, cmd.yesNo, cmd.later)
   else if (cmd.type === 'listen') toggleListening()
 })
 

@@ -219,10 +219,27 @@ export interface FeedbackRecord {
   messages: HistoryMessage[]
   answer: string
   rating: 'up' | 'down'
+  better?: string
 }
 
 /** Adds a rated answer to Feedback.jsonl, one JSON object per line. */
 export function appendFeedback(dir: string, record: FeedbackRecord): void {
   fs.mkdirSync(dir, { recursive: true })
   fs.appendFileSync(path.join(dir, FEEDBACK_FILE), JSON.stringify(record) + '\n', 'utf8')
+}
+
+/** How many rated answers Feedback.jsonl holds; 0 for a missing file. */
+export function countFeedback(dir: string): { up: number; down: number } {
+  const count = { up: 0, down: 0 }
+  let text = ''
+  try {
+    text = fs.readFileSync(path.join(dir, FEEDBACK_FILE), 'utf8')
+  } catch {
+    return count
+  }
+  for (const line of text.split('\n')) {
+    if (line.includes('"rating":"up"')) count.up++
+    else if (line.includes('"rating":"down"')) count.down++
+  }
+  return count
 }

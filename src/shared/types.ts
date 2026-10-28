@@ -95,7 +95,10 @@ export interface Settings {
   characterId: string
   /** Character size on screen, 0.5-2 times the pack's own size. */
   size: number
-  speech: { enabled: boolean; voiceName: string | null; rate: number; pitch: number }
+  /** piperPath and piperVoice (.onnx): empty = found on their own. */
+  speech: { enabled: boolean; voiceName: string | null; rate: number; pitch: number; piperPath: string; piperVoice: string }
+  /** Look for a new Pati on GitHub at start and every few hours; it always asks before installing. */
+  updates: { check: boolean }
   tips: { enabled: boolean; minMinutes: number; maxMinutes: number }
   /**
    * Chat with local models: the first reachable server in `servers` answers, so a
@@ -141,7 +144,7 @@ export type PetCommand =
   /** A progress line that replaces the "thinking" label until the next answer. */
   | { type: 'ai'; event: 'status'; text: string }
   /** `yesNo`: only Yes / No, no "always". */
-  | { type: 'confirm'; id: string; text: string; yesNo?: boolean }
+  | { type: 'confirm'; id: string; text: string; yesNo?: boolean; later?: boolean }
   /** The push-to-talk shortcut was pressed: start listening, or stop if already listening. */
   | { type: 'listen' }
   /** How the body moves: in the air (no walking, falling pose), the lean to swing towards (degrees), stretch of a fast fall, speed it just hit a floor with. */

@@ -1,5 +1,6 @@
 import type { PatiApi } from '../preload.ts'
 import { LANGUAGES, t, type MessageKey } from '../shared/i18n.ts'
+import { PIPER_VOICE, piperWanted } from '../shared/voicePick.ts'
 import type { AiServer, Character, Lang, Reminder, Settings } from '../shared/types.ts'
 
 interface Fact {
@@ -20,7 +21,8 @@ interface State {
   problems: { id: string; reason: string }[]
   facts: Fact[]
   brainDir: string
-  voice: { whisper: string | null; model: string | null; shortcutOk: boolean }
+  feedback: { up: number; down: number }
+  voice: { whisper: string | null; model: string | null; shortcutOk: boolean; piper: string | null; piperVoice: string | null; bundledTurkishOnly: boolean }
   model: ModelState
 }
 
@@ -99,8 +101,10 @@ $('reload').addEventListener('click', async () => apply((await api.reloadCharact
 function renderVoices() {
   const voices = speechSynthesis.getVoices()
   const select = $<HTMLSelectElement>('voice')
+  const piper = lastState?.voice.piper && lastState.voice.piperVoice
   select.replaceChildren(
     new Option(tr('settings.voiceAuto'), '', false, !settings.speech.voiceName),
+    ...(piper ? [new Option(tr('settings.voicePiper'), PIPER_VOICE, false, settings.speech.voiceName === PIPER_VOICE)] : []),
     ...voices.map(v => new Option(`${v.name} (${v.lang})`, v.name, false, v.name === settings.speech.voiceName)),
   )
 }
@@ -127,9 +131,25 @@ function bindNumber(id: string, get: () => number, set: (v: number) => void) {
   }
 }
 
-$('try-voice').addEventListener('click', () => {
+let previewAudio: HTMLAudioElement | null = null
+
+/** The sample in Piper's voice; false = Piper is not there, so the Windows voice speaks. */
+async function previewPiper(): Promise<boolean> {
+  const bytes = await api.tts(tr('settings.trySample')).catch(() => null)
+  if (!bytes) return false
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' }))
+  previewAudio = new Audio(url)
+  previewAudio.addEventListener('ended', () => URL.revokeObjectURL(url), { once: true })
+  await previewAudio.play()
+  return true
+}
+
+$('try-voice').addEventListener('click', async () => {
   speechSynthesis.cancel()
+  previewAudio?.pause()
+  if (await previewPiper().catch(() => false)) return
   const u = new SpeechSynthesisUtterance(tr('settings.trySample'))
+  // 'piper' failing falls back to the auto voice, like in pet.ts
   const voice = speechSynthesis.getVoices().find(v => v.name === settings.speech.voiceName)
   if (voice) u.voice = voice
   u.lang = voice?.lang ?? 'tr-TR'
@@ -330,6 +350,7 @@ $('brain-open').addEventListener('click', async () => {
   const how = await api.brainOpen()
   $('brain-status').textContent = how === 'folder' ? tr('settings.brainNotVault') : ''
 })
+$('feedback-open').addEventListener('click', () => api.brainFolder())
 $('brain-choose').addEventListener('click', async () => apply((await api.brainChoose()) as State))
 
 $('memory-clear').addEventListener('click', () => {
@@ -340,6 +361,14 @@ $('memory-clear').addEventListener('click', () => {
 
 function renderVoice(found: State['voice']) {
   $('voice-whisper').textContent = found.whisper ?? `(${tr('settings.voiceMissing')})`
+  $('piper-exe').textContent = found.piper ?? `(${tr('settings.voiceMissing')})`
+  $('piper-voice').textContent = found.piperVoice ?? `(${tr('settings.voiceMissing')})`
+  // Piper ignores pitch: say so instead of a slider that does nothing
+  const piperSpeaks = !!found.piper && !!found.piperVoice && piperWanted(settings.speech.voiceName, settings.language, found.bundledTurkishOnly)
+  $<HTMLInputElement>('pitch').disabled = piperSpeaks
+  $('pitch-hint').hidden = !piperSpeaks
+  $<HTMLButtonElement>('piper-auto').disabled = !settings.speech.piperPath
+  $<HTMLButtonElement>('piper-voice-auto').disabled = !settings.speech.piperVoice
   $('voice-model').textContent = found.model ?? `(${tr('settings.voiceMissing')})`
   $('voice-shortcut-status').textContent = tr(found.shortcutOk ? 'settings.voiceShortcutHelp' : 'settings.voiceShortcutTaken')
   $<HTMLButtonElement>('voice-whisper-auto').disabled = !settings.voice.whisperPath
@@ -348,6 +377,10 @@ function renderVoice(found: State['voice']) {
 
 $('voice-whisper-choose').addEventListener('click', async () => apply((await api.voiceChoose('whisper')) as State))
 $('voice-model-choose').addEventListener('click', async () => apply((await api.voiceChoose('model')) as State))
+$('piper-choose').addEventListener('click', async () => apply((await api.voiceChoose('piper')) as State))
+$('piper-voice-choose').addEventListener('click', async () => apply((await api.voiceChoose('piperVoice')) as State))
+$('piper-auto').addEventListener('click', () => ((settings.speech.piperPath = ''), save()))
+$('piper-voice-auto').addEventListener('click', () => ((settings.speech.piperVoice = ''), save()))
 $('voice-whisper-auto').addEventListener('click', () => ((settings.voice.whisperPath = ''), save()))
 $('voice-model-auto').addEventListener('click', () => ((settings.voice.modelPath = ''), save()))
 
@@ -386,6 +419,7 @@ function apply(state: State) {
   bindCheck('ai-memory', () => settings.ai.memory, v => (settings.ai.memory = v))
   renderMemory(state.facts)
   $('brain-dir').textContent = state.brainDir
+  $('feedback-count').textContent = tr('settings.feedbackCount', { n: state.feedback.up + state.feedback.down, up: state.feedback.up, down: state.feedback.down })
   bindCheck('tool-clipboard', () => settings.ai.tools.clipboard, v => (settings.ai.tools.clipboard = v))
   bindCheck('tool-web', () => settings.ai.tools.web, v => (settings.ai.tools.web = v))
   bindCheck('tool-actions', () => settings.ai.tools.actions, v => (settings.ai.tools.actions = v))
@@ -403,8 +437,10 @@ function apply(state: State) {
   bindNumber('pitch', () => settings.speech.pitch, v => (settings.speech.pitch = v))
   $<HTMLSelectElement>('voice').onchange = e => {
     settings.speech.voiceName = (e.target as HTMLSelectElement).value || null
+    if (lastState) renderVoice(lastState.voice)
     save()
   }
+  bindCheck('updates-check', () => settings.updates.check, v => (settings.updates.check = v))
   bindCheck('voice-enabled', () => settings.voice.enabled, v => (settings.voice.enabled = v))
   const shortcut = $<HTMLInputElement>('voice-shortcut')
   shortcut.value = settings.voice.shortcut

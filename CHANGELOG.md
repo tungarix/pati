@@ -2,6 +2,13 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.5.2 (2026-10-29)
+
+### Added
+- **Natural Turkish voice, built in.** Pati ships with [Piper](https://github.com/rhasspy/piper) and the Turkish `tr_TR-dfki-medium` voice, so answers are read in a neural voice out of the box, offline. Settings > Speech > Voice lists it as "Pati Türkçe (Piper)"; English keeps the Windows voice unless you pick Piper. Under "Advanced" you can point Pati at your own piper.exe and voice. The installer grows by about 77 MB.
+- **Updates that ask first.** Pati checks GitHub for a new version at start and every 6 hours, downloads it quietly and asks "restart now?" before installing. Turn it off in Settings > Updates. This is the first version that updates itself; installs older than 0.5.2 update once by hand.
+- **"How should it have been?"** After 👎 under an answer you can type the better answer; it is saved with the rating in `Feedback.jsonl`. Settings > Memory shows how many 👍/👎 examples you have and opens the folder. [docs/fine-tune.md](docs/fine-tune.md) explains how to turn them into a training set.
+
 ## 0.5.1 (2026-10-28)
 
 ### Fixed

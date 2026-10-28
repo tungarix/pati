@@ -67,6 +67,14 @@ başlangıç; `.en` ile bitenler Türkçe bilmez). Pati `whisper-cli.exe`'yi `PA
 üstündeki `models` klasöründe kendisi bulur; bulamazsa **Ayarlar > Sesle konuşma**'dan ikisini de seç. Kısayolu da oradan
 değiştirebilirsin. Bas, konuş; susunca Pati dinlemeyi kendisi bitirir (ya da kısayola bir daha bas).
 
+## Daha iyi ses (Piper)
+
+Türkçe nöral ses hazır gelir: kurulum dosyası [Piper](https://github.com/rhasspy/piper) ve `tr_TR-dfki-medium` sesini içerir, indirecek bir şey yok.
+İngilizce'de Pati Windows sesiyle konuşur (yerleşik ses yalnız Türkçe). İstersen **Ayarlar > Konuşma**'dan kendi `piper.exe`'ni ve sesini
+([rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)) gösterebilirsin; seçtiğin ses her dilde kullanılır. Piper hata verirse Windows sesi konuşur. Piper'da perde ayarı yok.
+
+Katkı: Piper (MIT), içindeki espeak-ng (GPL-3.0, [kaynak](https://github.com/espeak-ng/espeak-ng); Piper ayrı bir program olarak çalışır) ve [DFKI](https://github.com/marytts/dfki-ot-data) sesi (CC BY-NC-SA 4.0, ticari olmayan kullanım). Ayrıntı: Piper'ın yanındaki `LICENSES.txt`.
+
 8 GB ekran kartında 8-9 milyar parametrelik bir model iyi bir başlangıç. Pati küçük modellerin alışkanlıklarına göre çalışır: açık komutları modelin araç çağırmasına bırakmadan kendisi yapar, pil ve saat gibi sayıları modelin tahminine bırakmaz, ölçer.
 
 ## Beyin
@@ -85,6 +93,7 @@ Klasörü bir kez Obsidian'da kasa olarak aç. Sonra **Ayarlar > Hafıza > Obsid
 - Yapay zekâ senin bilgisayarında çalışır; sohbetler, hafıza ve notlar yerel dosyalarda kalır.
 - Uygulamanın dışına çıkan araçlar sen açana kadar **kapalıdır**: panoyu okumak ve internete bakmak (hava durumu için Open-Meteo, Wikipedia).
 - Bilgisayardaki eylemler (uygulama, site, dosya ve klasör açmak, dosya yazmak ve taşımak, müzik ve ses) önce sorar. Yalnızca `http(s)` adresleri açılır.
+- Pati kendiliğinden yalnızca GitHub'da yeni sürüm var mı diye bakar (birkaç saatte bir, yalnızca kurulu uygulamada). **Ayarlar > Güncellemeler**'den kapatabilirsin; kurmadan önce hep sorar.
 - Telemetri yok, hesap yok, reklam yok.
 
 ## Kendi karakterini ekleme
@@ -161,6 +170,10 @@ npm start
 | `npm run dist` | Windows kurulum dosyasını `release/` içine üretir |
 
 Yapı: `src/main` (pencereler, tepsi, yapay zekâ, beyin, araçlar, hatırlatıcılar, ayarlar), `src/core` (davranış durum makinesi), `src/preload.ts` (pencereler ile ana süreç arasındaki tek kapı), `src/renderer` (maskot ve ayarlar pencereleri), `characters/` (yerleşik paketler), `locales/` (Türkçe ve İngilizce).
+
+## Sürüm yayınlama
+
+`package.json`'daki `version`'ı artır, `npm run dist` çalıştır (önce Piper ve Türkçe sesi bir kez `build/piper/` içine indirir, hash doğrulamalı; kurulum dosyası yaklaşık 85 MB büyür); `release/` içindeki kurulum dosyasını, `latest.yml`'i ve `.exe.blockmap`'i GitHub Release'e (etiket `v<sürüm>`) ekle; `latest.yml` yoksa kurulu kopyalar güncellemeyi görmez. Dört haneli hotfix sürümleri (`-c.buildVersion=0.4.4.1`) `latest.yml`'e üç haneli `package.json` sürümünü yazar, güncelleyiciler görmez: otomatik güncelleme isteniyorsa normal yama sürümü artır.
 
 Planlar: [docs/ROADMAP.md](docs/ROADMAP.md). Değişiklikler: [CHANGELOG.md](CHANGELOG.md).
 

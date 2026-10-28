@@ -3,3 +3,9 @@ dist/
 release/
 .impeccable/
 eval/results/
+.serena/
+# taslak karakterler ana depoya girmez (docs/KARAKTER-PAKETLERI.md)
+characters-draft/
+
+# Piper + Türkçe ses: scripts/fetch-piper.mjs indirir
+build/piper/

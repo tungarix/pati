@@ -8,7 +8,7 @@ mkdirSync('dist/renderer', { recursive: true })
 const common = { bundle: true, sourcemap: true, logLevel: 'warning' }
 
 await Promise.all([
-  build({ ...common, entryPoints: ['src/main/main.ts'], outfile: 'dist/main.js', platform: 'node', format: 'cjs', external: ['electron'] }),
+  build({ ...common, entryPoints: ['src/main/main.ts'], outfile: 'dist/main.js', platform: 'node', format: 'cjs', external: ['electron', 'electron-updater'] }),
   build({ ...common, entryPoints: ['src/preload.ts'], outfile: 'dist/preload.js', platform: 'node', format: 'cjs', external: ['electron'] }),
   build({ ...common, entryPoints: ['src/renderer/pet.ts', 'src/renderer/settings.ts'], outdir: 'dist/renderer', platform: 'browser', format: 'iife' }),
 ])

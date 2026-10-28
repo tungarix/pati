@@ -136,6 +136,9 @@ html, body {
 .rate button { font-size: 12px; line-height: 1; padding: 3px 5px; border: 0; border-radius: 6px; background: none; cursor: pointer; opacity: 0.45; filter: grayscale(1); transition: opacity 120ms, filter 120ms; }
 .rate button:hover:not(:disabled), .rate button:focus-visible, .rate button.chosen { opacity: 1; filter: none; }
 .rate button:disabled { cursor: default; }
+.better { display: flex; gap: 4px; margin: 2px 0 0 4px; }
+.better input { flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 3px 6px; }
+.better button { font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer; }
 .rate button:disabled:not(.chosen) { opacity: 0.15; }
 
 .modern .buttons { display: flex; flex-wrap: wrap; gap: 6px; }

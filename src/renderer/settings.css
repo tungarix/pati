@@ -36,6 +36,8 @@ h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: 
 /* Yazı ölçeği 12 / 14 / 20; açıklama satırı okunur uzunlukta. */
 .muted { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 65ch; }
 
+summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
 section {
   background: var(--card);
   border: 1px solid var(--line);

@@ -69,6 +69,14 @@ is a good start; models ending in `.en` only know English). Pati finds `whisper-
 `models` folder beside or above it; if it can't, pick both in **Settings > Talking by voice**, where you can also change
 the shortcut. Press, speak; Pati stops listening when you pause (or press the shortcut again).
 
+## Better voice (Piper)
+
+The Turkish neural voice comes built in: the installer includes [Piper](https://github.com/rhasspy/piper) and the `tr_TR-dfki-medium` voice, so nothing to download.
+In English, Pati speaks with the Windows voice (the built-in voice is Turkish only). You can still point **Settings > Speech** at your own `piper.exe` and voice
+(any voice from [rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)); a voice you pick is used in every language. If Piper fails, the Windows voice speaks. Piper has no pitch setting.
+
+Credits: Piper (MIT), espeak-ng inside it (GPL-3.0, [source](https://github.com/espeak-ng/espeak-ng); Piper runs as a separate program), and the voice from [DFKI](https://github.com/marytts/dfki-ot-data) (CC BY-NC-SA 4.0, non-commercial). Details in `LICENSES.txt` next to the bundled Piper.
+
 A model of about 8-9B parameters is a good start on an 8 GB GPU. Pati works around the habits of small models: it handles plain commands itself instead of trusting the model to call a tool, and checks numbers (battery, time) instead of letting the model guess.
 
 ## The brain
@@ -87,6 +95,7 @@ Open the folder as a vault in Obsidian once; after that **Settings > Memory > Op
 - The AI runs on your computer; chats, memory and notes stay in local files.
 - Tools that reach outside the app are **off** until you turn them on: reading the clipboard, and looking things up online (weather from Open-Meteo, Wikipedia).
 - Actions on the computer (opening apps, websites, files and folders, writing and moving files, music and volume) ask first. Only `http(s)` addresses are ever opened.
+- The only thing Pati does on its own online is look for a new version on GitHub (a few hours apart, only in the installed app). You can turn it off in **Settings > Updates**; it always asks before installing.
 - No telemetry, no accounts, no ads.
 
 ## Your own character
@@ -163,6 +172,10 @@ npm start
 | `npm run dist` | Builds the Windows installer into `release/` |
 
 Layout: `src/main` (windows, tray, AI, brain, tools, reminders, settings), `src/core` (behaviour state machine), `src/preload.ts` (the only bridge between windows and the main process), `src/renderer` (pet and settings windows), `characters/` (built-in packs), `locales/` (Turkish and English).
+
+## Releasing
+
+Update `version` in `package.json`, run `npm run dist` (it first downloads Piper and the Turkish voice into `build/piper/` once, hash-checked, which makes the installer about 85 MB bigger), and attach the installer, `latest.yml` and the `.exe.blockmap` from `release/` to the GitHub Release (tag `v<version>`); without `latest.yml` installed copies won't see the update. Four-part hotfix versions (built with `-c.buildVersion=0.4.4.1`) keep the three-part `package.json` version in `latest.yml`, so updaters won't see them: bump the patch number when an auto-update is wanted.
 
 Plans: [docs/ROADMAP.md](docs/ROADMAP.md). Changes: [CHANGELOG.md](CHANGELOG.md).
 

@@ -42,7 +42,8 @@ JARVIS hissini tamamlayan adım.
   kendiliğinden bulunur, yoksa ayarlardan seçilir; README'de indirme rehberi). Türkçe ve İngilizce.
   Çıkan metin yazılmış gibi sohbete (açık komutlar dahil) gider, cevap sesli okunur.
 - Sıradaki adım: uyandırma kelimesi ("Hey Atlas").
-- Sesli cevap: kayıt yoksa yerel nöral TTS (Piper, Türkçe sesi var), o da yoksa Windows sesi.
+- ✅ Sesli cevap: kayıt yoksa yerel nöral TTS (Piper, Türkçe sesi var), o da yoksa Windows sesi.
+  `piper.exe` `PATH`'te ya da ayarlardan, ses yanındaki `voices`'ta bulunur; bulunamazsa Windows sesi.
 - Ses paketleri: karakterin kayıtlı sesleri (selam, onay, uyarı) + `manifest.json`.
 - Konuşurken ağız animasyonu sesle eşleşir.
 - ✅ Karakter boyutu: ayarlarda kaydırıcı, sağ tık ve tepsi menüsünde %50–%200.
@@ -54,9 +55,9 @@ JARVIS hissini tamamlayan adım.
 - Modern balonda her yapay zekâ cevabının altında iki küçük düğme; klasik balonda yok.
 - Basınca beyin klasöründe `Feedback.jsonl`'a bir satır: `{ time, character, model, messages, answer, rating }`.
   `messages` o cevabı üreten konuşmanın tamamı (sistem talimatı dahil), yani doğrudan ince ayar örneği.
-  Sonra: 👎'ye isteğe bağlı "nasıl olmalıydı?" kutusu; yazılan düzeltme `better` alanına.
-- Sonra: Ayarlar > Hafıza'da biriken örnek sayısı, klasörü aç düğmesi, `docs/fine-tune.md` rehberi
-  (Unsloth ile QLoRA; 9B için ~300 örnek iyi bir başlangıç, bulut GPU'da birkaç saat).
+  ✅ 👎'ye isteğe bağlı "nasıl olmalıydı?" kutusu; yazılan düzeltme `better` alanına (kayıt kutu kapanınca tek seferde yazılır).
+- ✅ Ayarlar > Hafıza'da biriken örnek sayısı (👍/👎) ve klasörü aç düğmesi; `docs/fine-tune.md` rehberi
+  (Unsloth ile QLoRA, Qwen3.5-4B; ~300 örnek iyi bir başlangıç, 8 GB kart yeter).
 - Test: kayıt biçimi ve dosyaya ekleme, `brain.ts` testlerinde.
 
 **Pomodoro / odak modu**

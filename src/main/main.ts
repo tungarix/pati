@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url'
 
 import { app, BrowserWindow, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, powerMonitor, screen, shell, Tray } from 'electron'
 
+import { autoUpdater } from 'electron-updater'
+
 import { detectLang, t, type MessageKey } from '../shared/i18n.ts'
+import { piperWanted } from '../shared/voicePick.ts'
 import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
 import { askAboutImage, chatWithTools, closest, detectServers, isRepeat, listModels, stripVocative, systemPrompt, UnauthorizedError, withClock, type HistoryMessage } from './ai.ts'
 import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
-import { appendExchange, appendFeedback, capSummary, dropLooped, ensureBrain, exchangeCount, type FeedbackRecord, getSummary, MEMORY_NOTE, MIN_SUMMARY_EXCHANGES, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
+import { appendExchange, appendFeedback, capSummary, countFeedback, dropLooped, ensureBrain, exchangeCount, type FeedbackRecord, getSummary, MEMORY_NOTE, MIN_SUMMARY_EXCHANGES, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
 import { InstallError, LocalModel, shouldOfferModel, withManagedServer } from './localModel.ts'
 import { loadSettings, saveSettings } from './settings.ts'
@@ -22,7 +25,7 @@ import { watchWindows } from './windows.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
 import { matchFocus, matchIntent, matchScreen, type Intent } from './intents.ts'
 import { runTool, toolDefinitions, type ToolContext } from './tools.ts'
-import { findModel, findWhisper, transcribe } from './voice.ts'
+import { findModel, findPiper, findPiperVoice, findWhisper, synthesize, transcribe, TTS_MAX_CHARS } from './voice.ts'
 
 const PET_W = 340
 const PET_H = 460
@@ -74,7 +77,7 @@ function broadcastState(): void {
 }
 
 function stateForWindows() {
-  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), voice: voiceStatus(), focus, model: modelState() }
+  return { settings, character: currentCharacter(), characters, problems, userDir: USER_DIR, facts: currentFacts(), brainDir: brainDir(), feedback: countFeedback(brainDir()), voice: voiceStatus(), focus, model: modelState() }
 }
 
 // ---- The pet window ---------------------------------------------------------
@@ -501,9 +504,9 @@ function confirmAction(kind: ActionKind, what: string): Promise<boolean> {
 }
 
 /** A plain yes/no question in the balloon; no answer for ten minutes counts as no. */
-function askYesNo(text: string): Promise<boolean> {
+function askYesNo(text: string, later = false): Promise<boolean> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-  send({ type: 'confirm', id, text, yesNo: true })
+  send({ type: 'confirm', id, text, yesNo: true, later })
   return new Promise(resolve => {
     const timer = setTimeout(() => (pendingConfirms.delete(id), resolve(false)), 600_000)
     pendingConfirms.set(id, answer => (clearTimeout(timer), resolve(answer === 'yes')))
@@ -1017,11 +1020,12 @@ ipcMain.on('ai-key', (_e, key: string) => {
   void chat(waiting.text, false)
 })
 ipcMain.on('ai-stop', () => chatAbort?.abort())
-ipcMain.on('rate', (_e, id: string, rating: 'up' | 'down') => {
+ipcMain.on('rate', (_e, id: string, rating: 'up' | 'down', better?: string) => {
   const entry = rateable.get(id)
   if (!entry || (rating !== 'up' && rating !== 'down')) return
   rateable.delete(id) // one rating per answer
-  appendFeedback(brainDir(), { ...entry, rating })
+  const fix = rating === 'down' && typeof better === 'string' ? better.trim().slice(0, 2000) : ''
+  appendFeedback(brainDir(), { ...entry, rating, ...(fix && { better: fix }) })
 })
 ipcMain.handle('focus', (_e, on: boolean) => focusCommand(on ? FOCUS_MINUTES : 'stop'))
 ipcMain.handle('ai-detect', () => detectServers())
@@ -1031,6 +1035,7 @@ ipcMain.handle('ai-models', (_e, server: { baseUrl: string; apiKey: string }) =>
 ipcMain.on('memory-delete', (_e, id: string) => setFacts(currentFacts().filter(f => f.id !== id)))
 ipcMain.on('memory-clear', () => setFacts([]))
 ipcMain.handle('brain-open', () => openBrain())
+ipcMain.handle('brain-folder', () => shell.openPath(brainDir()))
 ipcMain.handle('brain-choose', async () => {
   const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'], defaultPath: brainDir() })
   if (r.canceled || !r.filePaths[0]) return stateForWindows()
@@ -1066,10 +1071,29 @@ function registerShortcut(): void {
   if (shortcutOk) registeredShortcut = want
 }
 
+// The installer ships Piper in resources/piper (build/piper in dev).
+const bundledPiper = () => path.join(app.isPackaged ? process.resourcesPath : path.join(app.getAppPath(), 'build'), 'piper', 'piper.exe')
+
 function voiceStatus() {
   const whisper = findWhisper(settings.voice.whisperPath)
-  return { whisper, model: findModel(settings.voice.modelPath, whisper), shortcutOk }
+  const piper = findPiper(settings.speech.piperPath, undefined, bundledPiper())
+  // bundledTurkishOnly: the bundled Turkish voice is what Piper would speak (no own voice picked)
+  const bundledTurkishOnly = !!piper && piper === bundledPiper() && !settings.speech.piperVoice
+  return { whisper, model: findModel(settings.voice.modelPath, whisper), shortcutOk, piper, piperVoice: findPiperVoice(settings.speech.piperVoice, piper), bundledTurkishOnly }
 }
+
+// null = no Piper (or it failed): the renderer falls back to the Windows voice.
+ipcMain.handle('tts', async (_e, text: unknown): Promise<Uint8Array | null> => {
+  const { piper, piperVoice, bundledTurkishOnly } = voiceStatus()
+  if (!piper || !piperVoice || typeof text !== 'string' || !text.trim()) return null
+  if (!piperWanted(settings.speech.voiceName, settings.language, bundledTurkishOnly)) return null
+  try {
+    return await synthesize(piper, piperVoice, text.slice(0, TTS_MAX_CHARS), settings.speech.rate)
+  } catch (err) {
+    console.error('piper failed:', err)
+    return null
+  }
+})
 
 ipcMain.handle('voice-transcribe', async (_e, wav: ArrayBuffer): Promise<{ text: string } | { error: string }> => {
   const lang = settings.language
@@ -1082,13 +1106,33 @@ ipcMain.handle('voice-transcribe', async (_e, wav: ArrayBuffer): Promise<{ text:
     return { error: t(lang, 'voice.failed') }
   }
 })
-ipcMain.handle('voice-choose', async (_e, which: 'whisper' | 'model') => {
-  const filters = which === 'whisper' ? [{ name: 'whisper-cli', extensions: ['exe'] }] : [{ name: 'ggml', extensions: ['bin'] }]
+ipcMain.handle('voice-choose', async (_e, which: 'whisper' | 'model' | 'piper' | 'piperVoice') => {
+  const filters = { whisper: [{ name: 'whisper-cli', extensions: ['exe'] }], model: [{ name: 'ggml', extensions: ['bin'] }], piper: [{ name: 'piper', extensions: ['exe'] }], piperVoice: [{ name: 'onnx', extensions: ['onnx'] }] }[which]
   const r = await dialog.showOpenDialog({ properties: ['openFile'], filters })
-  if (!r.canceled && r.filePaths[0])
-    applySettings({ ...settings, voice: { ...settings.voice, [which === 'whisper' ? 'whisperPath' : 'modelPath']: r.filePaths[0] } })
+  if (!r.canceled && r.filePaths[0]) {
+    const file = r.filePaths[0]
+    if (which === 'piper' || which === 'piperVoice')
+      applySettings({ ...settings, speech: { ...settings.speech, [which === 'piper' ? 'piperPath' : 'piperVoice']: file } })
+    else applySettings({ ...settings, voice: { ...settings.voice, [which === 'whisper' ? 'whisperPath' : 'modelPath']: file } })
+  }
   return stateForWindows()
 })
+
+// ---- Updates --------------------------------------------------------------------
+
+/** Looks on GitHub at start and every 6 hours; downloads quietly, installs only after a yes. */
+function startUpdates(): void {
+  if (!app.isPackaged) return
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = false
+  autoUpdater.on('error', err => console.error('update check failed:', err))
+  autoUpdater.on('update-downloaded', async info => {
+    if (await askYesNo(t(settings.language, 'update.ready', { version: info.version }), true)) autoUpdater.quitAndInstall()
+  })
+  const check = () => settings.updates.check && void autoUpdater.checkForUpdates().catch(() => {})
+  setTimeout(check, 30_000)
+  setInterval(check, 6 * 3600_000)
+}
 
 // ---- IPC --------------------------------------------------------------------
 
@@ -1192,6 +1236,7 @@ if (!app.requestSingleInstanceLock()) {
     registerShortcut()
     startTimers()
     startPhysics()
+    startUpdates()
     void syncBuiltIn()
     // First start with no local AI anywhere: offer Pati-4B once, after the greeting.
     setTimeout(async () => {
