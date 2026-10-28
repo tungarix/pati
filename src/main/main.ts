@@ -472,6 +472,8 @@ function toolContext(): ToolContext {
       const err = await shell.openPath(p)
       if (err) throw new Error(err)
     },
+    fileRoots: { desktop: app.getPath('desktop'), documents: app.getPath('documents'), downloads: app.getPath('downloads') },
+    writeClipboard: text => clipboard.writeText(text),
     systemStatus,
     takeNote,
   }
@@ -785,13 +787,49 @@ async function extractFacts(server: AiServer, model: string, text: string, ctx: 
   }
 }
 
-type ToolResult = { ok?: boolean; declined?: boolean; error?: string; opened?: string; name?: string; candidates?: { name: string }[] }
+type ToolResult = {
+  ok?: boolean; declined?: boolean; error?: string; opened?: string; name?: string; candidates?: { name: string }[]
+  where?: string; created?: boolean; existed?: boolean; text?: string; truncated?: boolean
+  entries?: { name: string; isDir: boolean }[]; total?: number; matches?: { name: string; path: string }[]
+  from?: string; to?: string; path?: string
+}
 
 /** What a plain command did: the balloon text, the command that really ran, and its result as a tool turn. */
 interface IntentOutcome {
   reply: string
   intent: Intent
   result: object
+}
+
+const FILE_TOOLS = ['create_file', 'append_to_file', 'read_file', 'list_folder', 'find_path', 'make_folder', 'rename_path', 'move_path', 'copy_path', 'undo_last_change']
+
+/** What a file command did, in words; null for any other command. */
+const FILE_ERRORS: Record<string, MessageKey> = {
+  'only text files': 'intent.err.text', 'bad name': 'intent.err.name', exists: 'intent.err.exists', program: 'intent.err.program',
+  'too big': 'intent.err.big', 'nothing to undo': 'intent.err.nothingToUndo', 'cannot undo': 'intent.err.cannotUndo',
+}
+const WHERE_LABELS: Record<string, MessageKey> = { desktop: 'folder.desktop', documents: 'folder.documents', downloads: 'folder.downloads' }
+
+function fileIntentReply(lang: Settings['language'], intent: Intent, r: ToolResult): string | null {
+  if (!FILE_TOOLS.includes(intent.tool)) return null
+  const where = r.where && WHERE_LABELS[r.where] ? t(lang, WHERE_LABELS[r.where]) : ''
+  if (r.error === 'not found') return t(lang, 'intent.noPath', { name: 'name' in intent.args ? intent.args.name : '' })
+  if (r.candidates) return t(lang, 'intent.pathMany', { names: r.candidates.map(c => c.name).join(', ') })
+  if (r.error) return t(lang, FILE_ERRORS[r.error] ?? 'intent.failed')
+  const names = (r.entries ?? []).map(e => (e.isDir ? `${e.name}\\` : e.name)).join(', ')
+  switch (intent.tool) {
+    case 'create_file': return t(lang, 'intent.fileCreated', { name: r.name ?? '', where })
+    case 'append_to_file': return t(lang, r.created ? 'intent.fileCreated' : 'intent.fileAppended', { name: r.name ?? '', where })
+    case 'read_file': return r.text?.trim() ? t(lang, 'intent.fileRead', { name: r.name ?? '', text: r.text.trim().slice(0, 600) + (r.truncated || r.text.trim().length > 600 ? '…' : '') }) : t(lang, 'intent.fileEmpty', { name: r.name ?? '' })
+    case 'list_folder': return names ? t(lang, 'intent.listed', { where, names, more: (r.total ?? 0) > (r.entries?.length ?? 0) ? '…' : '' }) : t(lang, 'intent.listEmpty', { where })
+    case 'find_path': return t(lang, 'intent.found', { paths: (r.matches ?? []).map(m => m.path).join('\n') })
+    case 'make_folder': return t(lang, r.existed ? 'intent.folderExists' : 'intent.folderMade', { name: r.name ?? '', where })
+    case 'rename_path': return t(lang, 'intent.renamed', { from: r.from ?? '', to: r.to ?? '' })
+    case 'move_path': return t(lang, 'intent.moved', { name: r.name ?? '', to: r.to ?? '' })
+    case 'copy_path': return t(lang, 'intent.pathCopied', { name: r.name ?? '' })
+    case 'undo_last_change': return t(lang, 'intent.undone', { name: r.name ?? '' })
+  }
+  return null
 }
 
 /** Carries out a plain command itself and answers from what really happened. */
@@ -807,6 +845,8 @@ async function runIntent(intent: Intent, ctx: ToolContext): Promise<IntentOutcom
   }
   const done = (reply: string, stored: object = { ok: true }): IntentOutcome => ({ reply, intent, result: stored })
   if (result.declined) return done(t(lang, 'intent.declined'), { declined: true })
+  const fileReply = fileIntentReply(lang, intent, result)
+  if (fileReply) return done(fileReply, { ok: !result.error })
   if (intent.tool === 'open_path') {
     if (result.error) return done(t(lang, 'intent.noPath', { name: intent.args.name }), { error: result.error })
     if (result.candidates) return done(t(lang, 'intent.pathMany', { names: result.candidates.map(c => c.name).join(', ') }), { ok: false })

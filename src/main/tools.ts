@@ -1,8 +1,11 @@
 // Functions the chat model may call (OpenAI tool format). Everything outside the
 // app goes through the context, so tests can stand in for it.
 
+import { basename } from 'node:path'
+
 import type { Lang } from '../shared/types.ts'
-import { BLOCKED_EXT, cleanAppName, cleanPathName, FOLDERS, MEDIA_ACTIONS, PATH_ROOTS, websiteUrl, type ActionKind, type Folder, type MediaAction, type PathMatch, type PathRoot } from './actions.ts'
+import { BLOCKED_EXT, cleanAppName, cleanPathName, FOLDERS, MEDIA_ACTIONS, PATH_ROOTS, rootOf, websiteUrl, type ActionKind, type Folder, type MediaAction, type PathMatch, type PathRoot } from './actions.ts'
+import { appendText, createTextFile, listDir, makeDir, moveItem, READ_EXT, readText, renameItem, TEXT_EXT, undoLast } from './files.ts'
 
 export interface ToolContext {
   lang: Lang
@@ -26,6 +29,9 @@ export interface ToolContext {
   /** Files/folders on the Desktop, Documents and Downloads named like `name`, best first. */
   findPaths: (name: string, kind: 'file' | 'folder' | 'any', where?: PathRoot) => Promise<PathMatch[]>
   openPath: (p: string) => Promise<void>
+  /** Absolute paths of the Desktop, Documents and Downloads: the only places files are written. */
+  fileRoots: Record<PathRoot, string>
+  writeClipboard: (text: string) => void
   systemStatus: () => Promise<object>
   takeNote: (text: string) => void
 }
@@ -125,6 +131,24 @@ async function wikipedia(topic: string, ctx: ToolContext): Promise<unknown> {
   return { title: page.title, summary: page.extract?.slice(0, 1200) }
 }
 
+const extOf = (name: string) => name.slice(name.lastIndexOf('.')).toLowerCase()
+const refuse = (error: string) => JSON.stringify({ error })
+
+/** The one item a name means, or the reply to give instead: not found, or which of several. */
+async function pick(
+  ctx: ToolContext,
+  name: string,
+  kind: 'file' | 'folder' | 'any',
+  where: PathRoot | undefined,
+  allowed: (m: PathMatch) => boolean = () => true,
+): Promise<{ match: PathMatch } | { reply: string }> {
+  const found = (await ctx.findPaths(name, kind, where)).filter(m => (m.isDir || !BLOCKED_EXT.includes(extOf(m.name))) && allowed(m))
+  if (!found.length) return { reply: refuse('not found') }
+  const ties = found.filter(m => m.score === found[0].score)
+  if (ties.length > 1) return { reply: JSON.stringify({ ok: false, candidates: ties.slice(0, 3).map(m => ({ name: m.name, path: m.path, isDir: m.isDir })) }) }
+  return { match: found[0] }
+}
+
 /** Runs one tool call and returns what the model reads back, always a string. */
 export async function runTool(name: string, rawArgs: string, ctx: ToolContext): Promise<string> {
   let args: Record<string, unknown>
@@ -193,6 +217,99 @@ export async function runTool(name: string, rawArgs: string, ctx: ToolContext): 
         if (!(await ctx.confirm('open_path', match.name))) return JSON.stringify({ declined: true })
         await ctx.openPath(match.path)
         return JSON.stringify({ ok: true, opened: match.path, name: match.name, isDir: match.isDir })
+      }
+      // The file tools below are not offered to the model (the pet runs them from plain
+      // commands, see intents.ts), but they stay behind the same switch and questions.
+      case 'create_file': {
+        if (!ctx.allowActions || !str('name')) break
+        const where = rootOf(str('where')) ?? 'desktop'
+        if (!(await ctx.confirm('create_file', `${str('name')} → ${basename(ctx.fileRoots[where])}`))) return JSON.stringify({ declined: true })
+        const made = await createTextFile(ctx.fileRoots[where], str('name'), str('content'), Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, name: made.name, path: made.path, where })
+      }
+      case 'append_to_file': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name || !str('text')) break
+        const roots = Object.values(ctx.fileRoots)
+        const got = await pick(ctx, c.name, 'file', c.where, m => TEXT_EXT.includes(extOf(m.name)))
+        if ('reply' in got) {
+          // "alışveriş listesine süt ekle" with no list yet starts one.
+          if (args.create !== true || !got.reply.includes('not found')) return got.reply
+          if (!(await ctx.confirm('create_file', `${c.name} → ${basename(ctx.fileRoots[c.where ?? 'desktop'])}`))) return JSON.stringify({ declined: true })
+          const made = await createTextFile(ctx.fileRoots[c.where ?? 'desktop'], c.name, str('text') + '\n', roots)
+          return JSON.stringify({ ok: true, created: true, name: made.name, where: c.where ?? 'desktop' })
+        }
+        if (!(await ctx.confirm('append_file', got.match.name))) return JSON.stringify({ declined: true })
+        await appendText(got.match.path, str('text'), roots)
+        return JSON.stringify({ ok: true, name: got.match.name })
+      }
+      case 'read_file': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name) break
+        const got = await pick(ctx, c.name, 'file', c.where, m => READ_EXT.includes(extOf(m.name)))
+        if ('reply' in got) return got.reply
+        if (!(await ctx.confirm('read_file', got.match.name))) return JSON.stringify({ declined: true })
+        return JSON.stringify({ ok: true, name: got.match.name, ...(await readText(got.match.path, Object.values(ctx.fileRoots))) })
+      }
+      case 'list_folder': {
+        if (!ctx.allowActions) break
+        const where = rootOf(str('where')) ?? 'desktop'
+        const listed = await listDir(ctx.fileRoots[where], Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, where, ...listed })
+      }
+      case 'find_path': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name) break
+        const kind = ['file', 'folder', 'any'].includes(str('kind')) ? (str('kind') as 'file' | 'folder' | 'any') : c.kind
+        const found = (await ctx.findPaths(c.name, kind, c.where)).filter(m => m.isDir || !BLOCKED_EXT.includes(extOf(m.name)))
+        return found.length ? JSON.stringify({ ok: true, matches: found.map(m => ({ name: m.name, path: m.path, isDir: m.isDir })) }) : refuse('not found')
+      }
+      case 'make_folder': {
+        if (!ctx.allowActions || !str('name')) break
+        const where = rootOf(str('where')) ?? 'desktop'
+        if (!(await ctx.confirm('make_folder', `${str('name')} → ${basename(ctx.fileRoots[where])}`))) return JSON.stringify({ declined: true })
+        const made = await makeDir(ctx.fileRoots[where], str('name'), Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, name: basename(made.path), existed: made.existed, where })
+      }
+      case 'rename_path': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name || !str('new_name')) break
+        const got = await pick(ctx, c.name, c.kind, c.where)
+        if ('reply' in got) return got.reply
+        if (!(await ctx.confirm('rename', `${got.match.name} → ${str('new_name')}`))) return JSON.stringify({ declined: true })
+        const done = await renameItem(got.match.path, str('new_name'), Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, from: basename(done.from), to: basename(done.to) })
+      }
+      case 'move_path': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name || !str('to')) break
+        const got = await pick(ctx, c.name, c.kind, c.where)
+        if ('reply' in got) return got.reply
+        const root = rootOf(str('to'))
+        let dest: string
+        if (root) dest = ctx.fileRoots[root]
+        else {
+          const folder = await pick(ctx, cleanPathName(str('to')).name, 'folder', undefined)
+          if ('reply' in folder) return folder.reply
+          dest = folder.match.path
+        }
+        if (!(await ctx.confirm('move', `${got.match.name} → ${basename(dest)}`))) return JSON.stringify({ declined: true })
+        const done = await moveItem(got.match.path, dest, Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, name: basename(done.to), to: basename(dest) })
+      }
+      case 'copy_path': {
+        const c = cleanPathName(str('name'))
+        if (!ctx.allowActions || !c.name) break
+        const got = await pick(ctx, c.name, c.kind, c.where)
+        if ('reply' in got) return got.reply
+        ctx.writeClipboard(got.match.path)
+        return JSON.stringify({ ok: true, name: got.match.name, path: got.match.path })
+      }
+      case 'undo_last_change': {
+        if (!ctx.allowActions) break
+        if (!(await ctx.confirm('undo', ''))) return JSON.stringify({ declined: true })
+        const back = await undoLast(Object.values(ctx.fileRoots))
+        return JSON.stringify({ ok: true, name: basename(back.to) })
       }
       case 'system_status':
         if (!ctx.allowActions) break

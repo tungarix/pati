@@ -26,6 +26,8 @@ function ctx(over: Partial<ToolContext> = {}) {
     openFolder: async w => void log.push(`folder:${w}`),
     findPaths: async () => [],
     openPath: async p => void log.push('path:' + p),
+    fileRoots: { desktop: 'C:/U/Desktop', documents: 'C:/U/Documents', downloads: 'C:/U/Downloads' },
+    writeClipboard: t => void log.push(`clip:${t}`),
     systemStatus: async () => ({ battery: 80 }),
     takeNote: t => void log.push(`note:${t}`),
     ...over,

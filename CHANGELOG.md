@@ -2,16 +2,17 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
-## 0.4.7 (2026-10-25)
+## 0.4.7 (2026-10-28)
 
 ### Changed
 - **Pati-4B v3** is the recommended model now: 82% on Pati's stricter test set against 67% for the first version (+14.1 points, 95% interval +8.4 to +20.0). It answers the same question differently each time, no longer opens every reply with "Tamam", writes cleaner casual Turkish, opens named files and says plainly what it cannot do. Using saved facts and long multi-turn chats are weaker than in v1; see [docs/PATI-4B.md](docs/PATI-4B.md).
 - New installs download v3 (about 2.7 GB of model files; the vision file and llama.cpp are unchanged). An existing Pati-4B install keeps running v1 untouched; Settings > AI > Pati-4B > Remove, then Install, switches to v3.
 
 ### Added
-- The test set grew to 158 cases: multi-turn chats, the same question asked again, casual Turkish, file opening and plain-command routing, with checks for repeated replies, grammar slips, reply length and openings, and a paired comparison with a confidence interval (
-pm run eval, 
-ode eval/compare.ts --pair a b).
+- File commands, carried out by Pati itself and each asking first (Desktop, Documents and Downloads only; never overwriting, deleting or touching programs and scripts): create a text file ("masaüstüne liste.txt oluştur: süt, ekmek"), add to one ("alışveriş listesine peynir ekle"), read one, list a folder ("indirilenlerde ne var"), find without opening, create a folder, rename, move, copy a path, and undo the last rename or move ("geri al"). Writing is limited to txt, md and csv.
+- "aktenak dosya klasör aç" (with both words) opens the folder, in either order.
+- The test set grew to 158 cases: multi-turn chats, the same question asked again, casual Turkish, file opening and plain-command routing, with checks for repeated replies, grammar slips, reply length and openings, and a paired comparison with a confidence interval (`npm run eval`, `node eval/compare.ts --pair a b`).
+
 ## 0.4.6 (2026-10-24)
 
 ### Added

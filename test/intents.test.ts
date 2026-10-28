@@ -81,3 +81,27 @@ test('files and folders by name are not apps and not the Desktop', () => {
   assert.deepEqual(m("spotify'ı aç"), { tool: 'open_app', args: { name: 'spotify' } })
   assert.deepEqual(m('visual studio code aç'), { tool: 'open_app', args: { name: 'visual studio code' } })
 })
+
+test('file commands: create, append, read, list, find, folders, rename, move, copy path, undo', () => {
+  assert.deepEqual(m('masaüstüne Alışveriş.txt oluştur: süt, ekmek'), { tool: 'create_file', args: { name: 'Alışveriş.txt', content: 'süt, ekmek', where: 'desktop' } })
+  assert.deepEqual(m('notlar adlı dosya oluştur ve içine yarın toplantı var yaz'), { tool: 'create_file', args: { name: 'notlar', content: 'yarın toplantı var' } })
+  assert.deepEqual(m('rapor.txt oluştur'), { tool: 'create_file', args: { name: 'rapor.txt', content: '' } })
+  assert.equal(m('bir rapor oluştur'), null)
+  assert.deepEqual(m('alışveriş listesine peynir ekle'), { tool: 'append_to_file', args: { name: 'alışveriş', text: 'peynir', create: true } })
+  assert.deepEqual(m('notlar dosyasına şunu ekle: Pazartesi sınav'), { tool: 'append_to_file', args: { name: 'notlar', text: 'Pazartesi sınav' } })
+  assert.deepEqual(m('rapor.txt dosyasını oku'), { tool: 'read_file', args: { name: 'rapor.txt' } })
+  assert.deepEqual(m('indirilenlerde ne var'), { tool: 'list_folder', args: { where: 'downloads' } })
+  assert.deepEqual(m('masaüstündeki dosyaları listele'), { tool: 'list_folder', args: { where: 'desktop' } })
+  assert.deepEqual(m('aktenak dosyasını bul'), { tool: 'find_path', args: { name: 'aktenak', kind: 'file' } })
+  assert.equal(m('annem nerede'), null)
+  assert.deepEqual(m('masaüstüne Proje klasörü oluştur'), { tool: 'make_folder', args: { name: 'Proje', where: 'desktop' } })
+  assert.deepEqual(m('rapor dosyasının adını final yap'), { tool: 'rename_path', args: { name: 'rapor dosyası', new_name: 'final' } })
+  assert.deepEqual(m('rapor dosyasını ödev klasörüne taşı'), { tool: 'move_path', args: { name: 'rapor dosyası', to: 'ödev' } })
+  assert.deepEqual(m('rapor dosyasının yolunu kopyala'), { tool: 'copy_path', args: { name: 'rapor dosyası' } })
+  assert.deepEqual(m('geri al'), { tool: 'undo_last_change', args: {} })
+})
+
+test('"aktenak dosya klasör aç" means the folder, in either word order', () => {
+  assert.deepEqual(m('aktenak dosya klasör aç'), { tool: 'open_path', args: { name: 'aktenak', kind: 'folder' } })
+  assert.deepEqual(m('aktenak klasör dosya aç'), { tool: 'open_path', args: { name: 'aktenak', kind: 'folder' } })
+})

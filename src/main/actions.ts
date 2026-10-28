@@ -12,7 +12,9 @@ export type Folder = 'desktop' | 'documents' | 'downloads' | 'pictures' | 'music
 export const FOLDERS: Folder[] = ['desktop', 'documents', 'downloads', 'pictures', 'music', 'videos', 'brain']
 
 /** Kinds of action that ask the user first (once, or every time). */
-export type ActionKind = 'open_app' | 'open_website' | 'media' | 'open_folder' | 'screen' | 'open_path'
+export type ActionKind =
+  | 'open_app' | 'open_website' | 'media' | 'open_folder' | 'screen' | 'open_path'
+  | 'create_file' | 'append_file' | 'read_file' | 'make_folder' | 'rename' | 'move' | 'undo'
 
 const fold = (s: string) =>
   s
@@ -157,6 +159,12 @@ const LOCATIONS: [RegExp, PathRoot][] = [
   [/^belgeler\S*$|^documents?$/, 'documents'],
   [/^indirilen\S*$|^downloads?$/, 'downloads'],
 ]
+/** "masaüstüne", "belgelerimde": the root a word names, or null. */
+export function rootOf(word: string): PathRoot | null {
+  const w = word.toLocaleLowerCase('tr').replace(/masa üst/g, 'masaüst').trim()
+  return LOCATIONS.find(([re]) => re.test(w))?.[1] ?? null
+}
+
 const QUOTES = '[\'’"“”‘]'
 
 /** "masaüstündeki tungarix dosyasını" → search for "tungarix", a file, on the Desktop. */
