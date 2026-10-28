@@ -2,7 +2,7 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.5.1 (2026-10-28)
 
 ### Fixed
 - With your own AI server listed but not running, Pati offered to download Pati-4B (3.4 GB) on the first chat. It now says it cannot reach the server; the download is offered only to someone with no server at all, and stays in Settings > AI > Pati-4B.
