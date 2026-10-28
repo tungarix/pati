@@ -9,6 +9,7 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 - **Yerel yapay zekâyla sohbet eder.** Bilgisayarında çalışan [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) ya da [LM Studio](https://lmstudio.ai)'ya bağlanır. Her karakterin kendi kişiliği var.
 - **Seni hatırlar.** Bir *beyni* var: günlük sohbetlerin, her günün özeti ve senin paylaştığın bilgiler, düz Markdown dosyaları olarak bir klasörde durur. [Obsidian](https://obsidian.md)'da açıp ne bildiğini düzenleyebilirsin.
 - **İş görür.** "Spotify'ı aç", "sesi kıs", "not al: …", "pil kaç?". Bir şey yapmadan önce sorar; "her zaman" diyebilirsin.
+- **Dosyalarınla çalışır.** "Masaüstüne liste.txt oluştur: süt, ekmek", "alışveriş listesine peynir ekle", "indirilenlerde ne var?", "rapor dosyasını ödev klasörüne taşı", "geri al". Yalnız Masaüstü, Belgeler ve İndirilenler'de, yalnız metin dosyalarına (txt, md, csv) yazar; önce sorar, üzerine yazmaz, silmez, programlara ve komut dosyalarına dokunmaz.
 - **Sesle konuşur.** Kısayola bas (varsayılan `Ctrl+Shift+Space`), konuş; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) sesini bilgisayarında yazıya çevirir, cevabı balonda görür ve sesli dinlersin.
 - **Gerektiğinde kendisi konuşur.** Sabah bilgisayar başına oturunca kısa bir brifing, 90 dakika ara vermezsen mola hatırlatması, gece çok geç olunca bir uyarı.
 - **İstersen ekranına bakar.** "Ekrana bak", "bu hatayı açıkla" ya da menüde **Ekrana bak**: izin sorar, tek bir ekran görüntüsü alıp görsel bir modele gösterir (llama.cpp'de `--mmproj` ile, Ollama'da `qwen2.5vl`). Görüntü hiçbir yere kaydedilmez.
@@ -83,7 +84,7 @@ Klasörü bir kez Obsidian'da kasa olarak aç. Sonra **Ayarlar > Hafıza > Obsid
 
 - Yapay zekâ senin bilgisayarında çalışır; sohbetler, hafıza ve notlar yerel dosyalarda kalır.
 - Uygulamanın dışına çıkan araçlar sen açana kadar **kapalıdır**: panoyu okumak ve internete bakmak (hava durumu için Open-Meteo, Wikipedia).
-- Bilgisayardaki eylemler (uygulama, site ve klasör açmak, müzik ve ses) önce sorar. Yalnızca `http(s)` adresleri açılır.
+- Bilgisayardaki eylemler (uygulama, site, dosya ve klasör açmak, dosya yazmak ve taşımak, müzik ve ses) önce sorar. Yalnızca `http(s)` adresleri açılır.
 - Telemetri yok, hesap yok, reklam yok.
 
 ## Kendi karakterini ekleme

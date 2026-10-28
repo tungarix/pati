@@ -9,6 +9,7 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 - **Chats with a local AI.** Connects to [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) running on your machine. Each character has its own personality.
 - **Remembers you.** It keeps a *brain*: a folder of plain Markdown with your daily chats, a summary of each day and the facts you shared. Open it in [Obsidian](https://obsidian.md) and edit what it knows.
 - **Gets things done.** "Open Spotify", "turn the volume down", "take a note: …", "how's my battery?". It asks before acting, and you can say "always".
+- **Works with your files.** "Create `list.txt` on the desktop: milk, bread", "add cheese to the shopping list", "what's in Downloads?", "move the report into the homework folder", "undo". Desktop, Documents and Downloads only, text files only (txt, md, csv); it asks first and never overwrites, deletes or touches programs and scripts.
 - **Talks by voice.** Press the shortcut (`Ctrl+Shift+Space` by default) and speak; [whisper.cpp](https://github.com/ggml-org/whisper.cpp) turns it into text on your computer, and you see and hear the answer.
 - **Speaks up when it matters.** A short briefing when you sit down in the morning, a nudge after 90 minutes without a break, a word when it is very late.
 - **Looks at your screen when you ask.** "What's on my screen?", "explain this error" or **Look at my screen** in the menu: after asking, it takes one screenshot and shows it to a vision model (llama.cpp with `--mmproj`, or `qwen2.5vl` in Ollama). The image is never saved.
@@ -85,7 +86,7 @@ Open the folder as a vault in Obsidian once; after that **Settings > Memory > Op
 
 - The AI runs on your computer; chats, memory and notes stay in local files.
 - Tools that reach outside the app are **off** until you turn them on: reading the clipboard, and looking things up online (weather from Open-Meteo, Wikipedia).
-- Actions on the computer (opening apps, websites and folders, music and volume) ask first. Only `http(s)` addresses are ever opened.
+- Actions on the computer (opening apps, websites, files and folders, writing and moving files, music and volume) ask first. Only `http(s)` addresses are ever opened.
 - No telemetry, no accounts, no ads.
 
 ## Your own character
