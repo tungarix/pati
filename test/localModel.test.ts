@@ -7,7 +7,7 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 
-import { InstallError, LocalModel, withManagedServer, type Manifest, type ModelFile } from '../src/main/localModel.ts'
+import { InstallError, LocalModel, shouldOfferModel, withManagedServer, type Manifest, type ModelFile } from '../src/main/localModel.ts'
 
 const sha = (b: Buffer) => crypto.createHash('sha256').update(b).digest('hex')
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'pati-lm-'))
@@ -147,4 +147,11 @@ test('the server list keeps the managed server first, once, and drops it when it
   assert.deepEqual(withManagedServer([mine, managed(18080)], managed(18081).baseUrl), [managed(18081), mine])
   assert.deepEqual(withManagedServer([managed(18081), mine], null), [mine])
   assert.deepEqual(withManagedServer([], null), [])
+})
+
+test('Pati-4B is offered only to someone with no AI server at all', () => {
+  assert.equal(shouldOfferModel('not-installed', 0), true)
+  assert.equal(shouldOfferModel('partial', 0), true)
+  assert.equal(shouldOfferModel('not-installed', 2), false) // their own server is just off: tell them, do not offer a second model
+  assert.equal(shouldOfferModel('installed', 0), false)
 })

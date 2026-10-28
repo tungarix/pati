@@ -13,7 +13,7 @@ import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
 import { appendExchange, appendFeedback, capSummary, dropLooped, ensureBrain, exchangeCount, type FeedbackRecord, getSummary, MEMORY_NOTE, MIN_SUMMARY_EXCHANGES, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
-import { InstallError, LocalModel, withManagedServer } from './localModel.ts'
+import { InstallError, LocalModel, shouldOfferModel, withManagedServer } from './localModel.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findPaths, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
@@ -1001,8 +1001,8 @@ async function chat(text: string, mayDiscover = true): Promise<void> {
   }
   // Nothing on the list answered: look on the usual ports before giving up.
   if (mayDiscover && (await discoverServers())) return chat(text, false)
-  // Someone with servers of their own that are just off gets the offer once, not on every message.
-  if (mayDiscover && localModel.status() !== 'installed' && (!settings.ai.builtIn.offered || settings.ai.servers.length === 0)) return offerModel(text)
+  // Someone whose own servers are just off is told so below, not offered a second model.
+  if (mayDiscover && shouldOfferModel(localModel.status(), settings.ai.servers.length)) return offerModel(text)
   const url = settings.ai.servers[0]?.baseUrl ?? 'localhost'
   send({ type: 'ai', event: 'error', text: t(lang, 'chat.noServer', { url }) })
 }

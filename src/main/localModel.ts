@@ -94,6 +94,15 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const MANAGED_URL = /^http:\/\/127\.0\.0\.1:1808[0-5]\/v1$/
 
 /** The server list with the managed server (if running) first, and no stale copy of it. */
+/**
+ * Offer the Pati-4B download only to someone with no AI server at all. A user whose own
+ * server is listed but off (llama.cpp not started yet) is told it is off instead: they
+ * already have a model and may have no room for a second 3.4 GB copy.
+ */
+export function shouldOfferModel(status: Status, serverCount: number): boolean {
+  return status !== 'installed' && serverCount === 0
+}
+
 export function withManagedServer(servers: AiServer[], url: string | null): AiServer[] {
   const rest = servers.filter(s => !MANAGED_URL.test(s.baseUrl))
   return url ? [{ baseUrl: url, apiKey: '', model: '' }, ...rest] : rest
