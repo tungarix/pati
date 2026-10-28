@@ -1,6 +1,6 @@
 {
   "name": "pati",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "description": "Masaüstünde yaşayan, konuşan, hatırlatan ve tamamen özelleştirilebilen maskot.",
   "main": "dist/main.js",
   "author": "Arda",

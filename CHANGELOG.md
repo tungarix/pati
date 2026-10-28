@@ -2,7 +2,7 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
-## 0.4.7 (2026-10-28)
+## 0.5.0 (2026-10-28)
 
 ### Changed
 - **Pati-4B v3** is the recommended model now: 82% on Pati's stricter test set against 67% for the first version (+14.1 points, 95% interval +8.4 to +20.0). It answers the same question differently each time, no longer opens every reply with "Tamam", writes cleaner casual Turkish, opens named files and says plainly what it cannot do. Using saved facts and long multi-turn chats are weaker than in v1; see [docs/PATI-4B.md](docs/PATI-4B.md).
