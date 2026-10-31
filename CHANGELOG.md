@@ -2,6 +2,15 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.5.3 (2026-10-31)
+
+### Fixed
+- Clicking elsewhere while a chat was open could leave it dead: no typing, no buttons, no way back into that conversation. Clicking the character no longer throws an open chat away (Escape closes it), a click inside the chat gives the typing back, and the window re-announces to the system that it wants clicks every second.
+- The tray icon squeezed the whole tall character into 16×16. It now shows the head and shoulders.
+
+### Changed
+- New app icon: Tungarix's head on a dark rounded square, readable at taskbar size.
+
 ## 0.5.2 (2026-10-29)
 
 ### Added

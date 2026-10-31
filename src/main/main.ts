@@ -179,7 +179,10 @@ function menuTemplate(): Electron.MenuItemConstructorOptions[] {
 function trayIcon(): Electron.NativeImage {
   const first = currentCharacter()?.animations.idle.frames[0]
   if (!first) return nativeImage.createEmpty()
-  return nativeImage.createFromPath(fileURLToPath(first)).resize({ width: 16, height: 16, quality: 'good' })
+  const img = nativeImage.createFromPath(fileURLToPath(first))
+  // The frames are tall; squeezing one into a square distorted it, so the icon is the top square (head and shoulders).
+  const { width } = img.getSize()
+  return img.crop({ x: 0, y: 0, width, height: width }).resize({ width: 32, height: 32, quality: 'good' })
 }
 
 function rebuildTray(): void {

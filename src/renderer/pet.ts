@@ -69,6 +69,7 @@ let focus: State['focus'] = { phase: 'off', until: 0 }
 const isQuiet = () => Date.now() < hushUntil || focus.phase === 'focus'
 let nextTipAt = 0
 let isInteractive = false
+let interactiveSentAt = 0
 
 const pick = <T>(list: T[]): T => list[Math.floor(Math.random() * list.length)]
 const rand = (min: number, max: number) => min + Math.random() * (max - min)
@@ -280,6 +281,14 @@ chatForm.addEventListener('submit', e => {
   sendChat(text)
 })
 chatInput.addEventListener('keydown', e => e.key === 'Escape' && closeBalloon())
+// After a click on another window the pet window is inactive; any click or focus in the chat gives the typing back.
+window.addEventListener('focus', () => isChatting && chatInput.focus())
+balloon.addEventListener('mousedown', e => {
+  if (!isChatting || (e.target as HTMLElement).closest('button, input, a')) return
+  e.preventDefault()
+  api.focusPet()
+  chatInput.focus()
+})
 
 function onAi(event: 'token' | 'done' | 'error' | 'needKey' | 'status', text: string, id?: string) {
   if (event === 'status') return void (statusText = text)
@@ -562,8 +571,10 @@ function remind(text: string) {
 // ---- Pointer: click-through, drag, click -------------------------------------
 
 function setInteractive(next: boolean) {
-  if (next === isInteractive) return
+  // Re-sent every second: if the main process ever drops the state (a click on another window), the balloon would stay dead.
+  if (next === isInteractive && Date.now() - interactiveSentAt < 1000) return
   isInteractive = next
+  interactiveSentAt = Date.now()
   api.setInteractive(next)
 }
 
@@ -600,7 +611,9 @@ window.addEventListener('mouseup', () => {
     return
   }
   // A click, not a drag: answer it like the old assistants did.
-  if (!balloon.hidden) closeBalloon()
+  // A click on the character must not throw an open chat away; Escape closes it.
+  if (isChatting) (api.focusPet(), chatInput.focus())
+  else if (!balloon.hidden) closeBalloon()
   else openMenu()
 })
 
