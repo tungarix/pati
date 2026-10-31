@@ -3,6 +3,10 @@
 // first; no native module to build or ship.
 import { spawn, type ChildProcess } from 'node:child_process'
 
+import { BrowserWindow } from 'electron'
+
+import { ENEMY_SIZE } from './enemies.ts'
+
 // Physical pixels (DPI aware), visible frame without the invisible resize border,
 // skipping minimised, cloaked (other virtual desktop), tool and untitled windows,
 // the desktop itself and Pati's own windows.
@@ -95,4 +99,27 @@ export function watchWindows(onRects: (rects: PhysicalRect[]) => void): () => vo
     stopped = true
     child?.kill()
   }
+}
+
+/** The enemy's own window: fixed size, clicks fall through except over the creature, never takes focus. Moved with setBounds, like the pet. */
+export function createEnemyWindow(preload: string, page: string): BrowserWindow {
+  const win = new BrowserWindow({
+    width: ENEMY_SIZE,
+    height: ENEMY_SIZE,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    focusable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    show: false,
+    webPreferences: { preload },
+  })
+  win.setAlwaysOnTop(true, 'floating')
+  win.setIgnoreMouseEvents(true, { forward: true }) // mousemove still arrives; the renderer turns clicks on over the creature
+  void win.loadFile(page)
+  win.once('ready-to-show', () => win.showInactive())
+  return win
 }

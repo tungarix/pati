@@ -10,18 +10,21 @@ import { autoUpdater } from 'electron-updater'
 
 import { detectLang, t, type MessageKey } from '../shared/i18n.ts'
 import { piperWanted } from '../shared/voicePick.ts'
-import type { AiServer, Character, PetCommand, Settings } from '../shared/types.ts'
+import type { Box } from '../shared/hitbox.ts'
+import type { AiServer, Character, Enemy, EnemyShow, PackInfo, PacksState, PetCommand, Settings } from '../shared/types.ts'
 import { askAboutImage, chatWithTools, closest, detectServers, isRepeat, listModels, stripVocative, systemPrompt, UnauthorizedError, withClock, type HistoryMessage } from './ai.ts'
 import { loadCharacters, type PackProblem } from './characters.ts'
 import { addFact, forgetFacts, loadFacts, looksPersonal, memoryBlock, saveFacts, type Fact } from './memory.ts'
 import { appendExchange, appendFeedback, capSummary, countFeedback, dropLooped, ensureBrain, exchangeCount, type FeedbackRecord, getSummary, MEMORY_NOTE, MIN_SUMMARY_EXCHANGES, pastBlock, pastDays, SUMMARY_PROMPT, todaysMessages, transcript, withSummary } from './brain.ts'
 import { dueReminders, type FiredLog } from './reminders.ts'
 import { InstallError, LocalModel, shouldOfferModel, withManagedServer } from './localModel.ts'
+import { fetchIndex, PackError, PackStore } from './packStore.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findPaths, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
 import { physicsStep, pixel, throwVelocity, type Body, type Rect } from './physics.ts'
-import { watchWindows } from './windows.ts'
+import { advance, canSpawn, grab, opaqueBox, release, unionBox, nextSpawnDelay, pickEnemy, planSpawn, SPEED_UNIT, startRun, ENEMY_SIZE, RETRY_MS, type Run } from './enemies.ts'
+import { createEnemyWindow, watchWindows } from './windows.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
 import { matchFocus, matchIntent, matchScreen, type Intent } from './intents.ts'
 import { runTool, toolDefinitions, type ToolContext } from './tools.ts'
@@ -210,12 +213,14 @@ function openCharactersFolder(): void {
 
 function applySettings(next: Settings): void {
   const resized = next.size !== settings.size
+  const enemiesChanged = next.enemies.frequency !== settings.enemies.frequency || next.characterId !== settings.characterId
   settings = next
   if (resized && pet) {
     // Grow up and to the left, so the character's feet stay where they were.
     const b = pet.getBounds()
     pet.setBounds({ x: b.x + b.width - petW(), y: b.y + b.height - petH(), width: petW(), height: petH() })
   }
+  if (enemiesChanged) (enemy && closeEnemy(false), scheduleEnemy())
   saveSettings(SETTINGS_FILE, settings)
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings.openAtLogin })
   registerShortcut()
@@ -358,6 +363,155 @@ function startPhysics(): void {
     if (r.landed) savePosition()
   }, 16)
 }
+
+// ---- Enemies: a visitor in its own window that the pet fights ---------------------------
+
+/** `lift`: how far above the floor it is carried (DIP); `carry`: the timer that follows the mouse. */
+let enemy: { def: Enemy; run: Run; win: BrowserWindow; shownDir: 1 | -1; lift: number; carry: NodeJS.Timeout | null } | null = null
+const boxCache = new Map<string, Box | null>()
+/** The pet window says so when its balloon is open, it sleeps or it speaks. */
+let petBusy = false
+/** The pet's fight scene reached its blow. */
+let enemyStruck = false
+let nextEnemyAt = Infinity
+
+function scheduleEnemy(delay = nextSpawnDelay(settings.enemies.frequency, Math.random)): void {
+  nextEnemyAt = delay === null ? Infinity : Date.now() + delay
+}
+
+const canFight = () => currentCharacter().enemies.length > 0 && !!currentCharacter().scenes.fight
+
+/** Opaque box of one frame file, read once (the renderer cannot read pixels of file:// images). */
+function frameBox(url: string): Box | null {
+  if (!boxCache.has(url)) {
+    const img = nativeImage.createFromPath(fileURLToPath(url))
+    const { width, height } = img.getSize()
+    boxCache.set(url, opaqueBox(img.toBitmap(), width, height))
+  }
+  return boxCache.get(url) ?? null
+}
+
+/** `held`: the startled `hit` pose while carried (and no hitbox, the grab is already on). */
+function showEnemy(phase: Run['phase'], held = false): void {
+  if (!enemy) return
+  const { frames } = enemy.def
+  const list = held || phase === 'hit' ? frames.hit : phase === 'die' ? frames.die : frames.walk
+  const show: EnemyShow = {
+    frames: phase === 'fight' ? [frames.walk[0]] : list,
+    fps: phase === 'die' ? 4 : 6,
+    loop: phase === 'walk' && !held,
+    flip: enemy.run.dir > 0,
+    pixel: currentCharacter().scale >= 2,
+    scale: settings.size,
+    box: phase === 'walk' && !held ? unionBox(list.map(frameBox)) : null,
+  }
+  enemy.shownDir = enemy.run.dir
+  enemy.win.webContents.send('enemy', show)
+}
+
+/** Same technique as movePet: setBounds with the exact size, never setPosition. */
+function moveEnemy(): void {
+  if (!enemy) return
+  const f = feet()
+  enemy.win.setBounds({ x: pixel(enemy.run.x - ENEMY_SIZE / 2), y: pixel(f.y - enemy.lift - ENEMY_SIZE), width: ENEMY_SIZE, height: ENEMY_SIZE })
+}
+
+function closeEnemy(dead: boolean): void {
+  if (enemy?.carry) clearInterval(enemy.carry)
+  // A fight already on must end for the pet too, whatever closed the enemy.
+  const fighting = !!enemy && enemy.run.phase !== 'walk'
+  enemy?.win.destroy()
+  enemy = null
+  if (dead || fighting) send({ type: 'enemy', event: 'dead' })
+  scheduleEnemy()
+}
+
+function spawnEnemy(): void {
+  const def = pickEnemy(currentCharacter().enemies, Math.random)
+  if (!def || !pet) return
+  const wa = screen.getDisplayMatching(pet.getBounds()).workArea
+  const plan = planSpawn(feet().x, { left: wa.x, right: wa.x + wa.width }, def.speed * SPEED_UNIT, Math.random)
+  enemyStruck = false
+  enemy = { def, run: startRun(plan), win: createEnemyWindow(path.join(__dirname, 'preload.js'), path.join(__dirname, 'renderer', 'enemy.html')), shownDir: plan.dir, lift: 0, carry: null }
+  moveEnemy()
+  enemy.win.webContents.once('did-finish-load', () => showEnemy('walk'))
+}
+
+function startEnemies(): void {
+  scheduleEnemy()
+  let last = Date.now()
+  setInterval(() => {
+    const now = Date.now()
+    const dt = Math.min(100, now - last)
+    last = now
+    if (!enemy) {
+      if (now < nextEnemyAt) return
+      const ok = canSpawn({
+        frequency: settings.enemies.frequency,
+        canFight: canFight(),
+        active: false,
+        focusMode: focus.phase === 'focus',
+        petBusy,
+        dragging: !!dragTimer,
+        airborne: !!body,
+        petVisible: !!pet?.isVisible(),
+      })
+      if (ok) (spawnEnemy(), scheduleEnemy())
+      else scheduleEnemy(RETRY_MS)
+      return
+    }
+    if (!pet?.isVisible()) return closeEnemy(false)
+    const r = advance(enemy.run, dt, { petX: feet().x, petReady: !petBusy && !dragTimer && !body, struck: enemyStruck, speed: enemy.def.speed * SPEED_UNIT, size: settings.size })
+    enemy.run = r.run
+    if (r.run.falling || r.signal === 'landed') enemy.lift = r.run.lift ?? 0
+    moveEnemy()
+    if (r.signal === 'released') dropEnemy()
+    else if (r.signal === 'landed') showEnemy('walk')
+    else if (r.signal === 'expired') closeEnemy(false)
+    else if (r.signal === 'done') closeEnemy(true)
+    else if (r.signal === 'arrived') (send({ type: 'enemy', event: 'arrived', side: enemy.run.x > feet().x ? 1 : -1 }), showEnemy('fight'))
+    else if (r.signal === 'hit' || r.signal === 'die') showEnemy(r.signal)
+    else if (r.run.phase === 'walk' && !r.run.falling && r.run.dir !== enemy.shownDir) showEnemy('walk')
+  }, 33)
+}
+
+/** Let go (the mouse, the hold cap): falls from where it is (the startled frames stay), then walks on towards the pet. */
+function dropEnemy(): void {
+  if (!enemy?.run.held && !enemy?.carry) return
+  if (enemy.carry) clearInterval(enemy.carry)
+  enemy.carry = null
+  const wa = screen.getDisplayMatching(enemy.win.getBounds()).workArea
+  enemy.run = release(enemy.run, feet().x, { left: wa.x, right: wa.x + wa.width }, enemy.lift)
+  if (enemy.run.falling) return moveEnemy() // the tick lowers it; 'landed' brings the walk frames back
+  enemy.lift = 0
+  moveEnemy()
+  showEnemy('walk')
+}
+
+ipcMain.on('enemy-interactive', (_e, on: boolean) => enemy?.win.setIgnoreMouseEvents(!on, { forward: true }))
+
+// Same technique as the pet's drag: pointer events stop outside the small window, so the cursor is polled.
+ipcMain.on('enemy-grab', (_e, offset: { x: number; y: number }) => {
+  if (!enemy || enemy.carry) return
+  const held = grab(enemy.run)
+  if (held === enemy.run) return
+  enemy.run = held
+  showEnemy('walk', true)
+  const wa = screen.getDisplayMatching(enemy.win.getBounds()).workArea
+  enemy.carry = setInterval(() => {
+    if (!enemy) return
+    const p = screen.getCursorScreenPoint()
+    const left = p.x - offset.x
+    const top = Math.max(wa.y, Math.min(wa.y + wa.height - ENEMY_SIZE, p.y - offset.y))
+    enemy.run = { ...enemy.run, x: Math.max(wa.x, Math.min(wa.x + wa.width, left + ENEMY_SIZE / 2)) }
+    enemy.lift = Math.max(0, feet().y - ENEMY_SIZE - top)
+    moveEnemy()
+  }, 16)
+})
+ipcMain.on('enemy-drop', dropEnemy)
+
+ipcMain.on('pet-busy', (_e, busy: boolean) => (petBusy = busy === true))
+ipcMain.on('enemy-struck', () => (enemyStruck = true))
 
 // ---- AI chat ----------------------------------------------------------------
 
@@ -1130,7 +1284,7 @@ function startUpdates(): void {
   autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.on('error', err => console.error('update check failed:', err))
   autoUpdater.on('update-downloaded', async info => {
-    if (await askYesNo(t(settings.language, 'update.ready', { version: info.version }), true)) autoUpdater.quitAndInstall()
+    if (await askYesNo(t(settings.language, 'update.ready', { version: info.version }), true)) autoUpdater.quitAndInstall(true, true) // silent: the installer is a wizard, and Pati must reopen by itself
   })
   const check = () => settings.updates.check && void autoUpdater.checkForUpdates().catch(() => {})
   setTimeout(check, 30_000)
@@ -1201,6 +1355,61 @@ ipcMain.on('model-remove', async () => {
   setManagedServer(null)
 })
 
+// ---- Fan packs: optional characters, fetched only when the user asks ----------
+
+const packStore = new PackStore({ userDir: USER_DIR, recordFile: path.join(app.getPath('userData'), 'store.json') })
+let packIndex: PackInfo[] | null = null
+const packs: PacksState = { loaded: false, packs: [], busy: '', percent: 0, error: '' }
+
+function packsView(): PacksState {
+  const have = packStore.record()
+  return { ...packs, packs: (packIndex ?? []).map(p => ({ ...p, installed: p.id in have })) }
+}
+
+const sendPacks = () => settingsWin?.webContents.send('packs', packsView())
+const packMessage = (err: unknown) =>
+  err instanceof PackError ? t(settings.language, `packs.error.${err.code}` as MessageKey, { detail: err.detail }) : t(settings.language, 'packs.error.network', { detail: (err as Error).message })
+
+ipcMain.handle('packs-list', async () => {
+  packs.error = ''
+  try {
+    packIndex = await fetchIndex()
+    packs.loaded = true
+  } catch (err) {
+    packs.error = packMessage(err)
+  }
+  return packsView()
+})
+
+/** Install or remove one pack, then reload characters the way the Reload button does. */
+async function changePack(id: string, install: boolean): Promise<void> {
+  const pack = packIndex?.find(p => p.id === id)
+  if (packs.busy || (install && !pack)) return
+  Object.assign(packs, { busy: id, percent: 0, error: '' })
+  sendPacks()
+  let last = 0
+  try {
+    if (install) {
+      await packStore.install(pack!, (done, total) => {
+        if (Date.now() - last < 300) return
+        last = Date.now()
+        packs.percent = Math.floor((done * 100) / total)
+        sendPacks()
+      }, new AbortController().signal)
+    } else packStore.remove(id)
+    reloadCharacters()
+    broadcastState()
+  } catch (err) {
+    packs.error = packMessage(err)
+  } finally {
+    packs.busy = ''
+    sendPacks()
+  }
+}
+
+ipcMain.on('pack-install', (_e, id: unknown) => typeof id === 'string' && void changePack(id, true))
+ipcMain.on('pack-remove', (_e, id: unknown) => typeof id === 'string' && void changePack(id, false))
+
 ipcMain.handle('save-settings', (_e, next: Settings) => {
   applySettings(next)
   void syncBuiltIn()
@@ -1239,6 +1448,7 @@ if (!app.requestSingleInstanceLock()) {
     registerShortcut()
     startTimers()
     startPhysics()
+    startEnemies()
     startUpdates()
     void syncBuiltIn()
     // First start with no local AI anywhere: offer Pati-4B once, after the greeting.

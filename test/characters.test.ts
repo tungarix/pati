@@ -60,3 +60,76 @@ test('broken packs are reported, not loaded', () => {
   assert.ok(characters.some(c => c.id === 'tungarix'))
   assert.equal(problems.length, 1)
 })
+
+const FIGHTER = path.resolve(import.meta.dirname, 'fixtures', 'fighter')
+
+test('a pack with a fight scene and enemies loads them as file URLs', () => {
+  const c = readCharacterPack(FIGHTER, false)
+  assert.deepEqual(c.notes, [])
+  assert.equal(c.scenes.fight.frames.length, 3)
+  assert.equal(c.scenes.fight.fps, 5)
+  assert.equal(c.enemies.length, 1)
+  assert.equal(c.enemies[0].name, 'Crab')
+  assert.ok(c.enemies[0].frames.die[1].startsWith('file:'))
+  assert.deepEqual(c.lines.tr.win, ['Done.'])
+})
+
+test('a pack without scenes or enemies has none and no notes', () => {
+  const c = readCharacterPack(path.join(BUILT_IN, 'tungarix'), true)
+  assert.deepEqual(c.enemies, [])
+  assert.deepEqual(c.scenes, {})
+  assert.deepEqual(c.notes, [])
+})
+
+/** The fighter pack as JSON with `change` applied, in a throwaway folder next to its pictures. */
+function fighterWith(change: (j: Record<string, any>) => void): string {
+  const j = JSON.parse(fs.readFileSync(path.join(FIGHTER, 'character.json'), 'utf8'))
+  change(j)
+  const dir = packDir({ 'character.json': JSON.stringify(j) })
+  fs.cpSync(FIGHTER, dir, { recursive: true, filter: f => !f.endsWith('character.json') })
+  return dir
+}
+
+test('enemies without a fight scene, or with missing frames, are off with a note; the pack still loads', () => {
+  const noFight = readCharacterPack(fighterWith(j => delete j.scenes.fight), false)
+  assert.deepEqual(noFight.enemies, [])
+  assert.match(noFight.notes.join(), /scenes\.fight/)
+
+  const noDie = readCharacterPack(fighterWith(j => delete j.enemies[0].frames.die), false)
+  assert.deepEqual(noDie.enemies, [])
+  assert.match(noDie.notes.join(), /crab/)
+
+  const noFile = readCharacterPack(fighterWith(j => (j.enemies[0].frames.hit = ['enemy/yok.png'])), false)
+  assert.deepEqual(noFile.enemies, [])
+
+  const notAList = readCharacterPack(fighterWith(j => (j.enemies = 'crab')), false)
+  assert.deepEqual(notAList.enemies, [])
+  assert.equal(notAList.notes.length, 1)
+
+  const badScene = readCharacterPack(fighterWith(j => (j.scenes.win = { frames: 'win.png' })), false)
+  assert.equal(badScene.scenes.win, undefined)
+  assert.ok(badScene.scenes.fight)
+})
+
+test('enemy and scene frames cannot leave the pack folder', () => {
+  const c = readCharacterPack(fighterWith(j => (j.enemies[0].frames.walk = ['../../../etc/passwd'])), false)
+  assert.deepEqual(c.enemies, [])
+  assert.match(c.notes.join(), /paket dışında/)
+
+  const scene = readCharacterPack(fighterWith(j => (j.scenes.fight = { frames: ['../escape.png'], fps: 5 })), false)
+  assert.equal(scene.scenes.fight, undefined)
+  assert.match(scene.notes.join(), /paket dışında/)
+})
+
+test('loadCharacters reports a feature-off pack as a soft problem but still loads it', () => {
+  const dir = fighterWith(j => delete j.scenes.fight)
+  const { characters, problems } = loadCharacters(BUILT_IN, path.dirname(dir))
+  assert.ok(characters.some(c => c.id === 'kedi'))
+  assert.ok(problems.some(p => p.id === 'kedi' && p.soft))
+})
+
+test('speed and weight are clamped to usable values', () => {
+  const c = readCharacterPack(fighterWith(j => Object.assign(j.enemies[0], { speed: 99, weight: -3 })), false)
+  assert.equal(c.enemies[0].speed, 8)
+  assert.equal(c.enemies[0].weight, 1)
+})

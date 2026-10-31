@@ -3,12 +3,14 @@
 
 import type { AnimationName } from '../shared/types.ts'
 
-export type Mode = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk'
+export type Mode = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fight' | 'win'
 
 export interface BehaviorState {
   mode: Mode
   /** Pixels left to walk and which way; null when standing. */
   walk: { remaining: number; dir: 1 | -1 } | null
+  /** Fighting an enemy, then posing for the win; held being dragged or asleep ends it. */
+  scene: 'fight' | 'win' | null
   facing: 1 | -1
 }
 
@@ -21,11 +23,15 @@ export interface Inputs {
   wander: boolean
   /** The window hit the edge of the screen on the last move. */
   hitEdge: boolean
+  /** One-off news from the main process: an enemy reached the pet, or is dead. */
+  enemy: 'arrived' | 'dead' | null
+  /** The win pose has been shown long enough. */
+  sceneOver: boolean
   /** Injected so tests are deterministic. */
   random: () => number
 }
 
-export type BehaviorEvent = 'fell-asleep' | 'woke-up' | 'walk-ended'
+export type BehaviorEvent = 'fell-asleep' | 'woke-up' | 'walk-ended' | 'fight-started' | 'fight-won'
 
 export interface Step {
   state: BehaviorState
@@ -41,7 +47,7 @@ export const WALK_SPEED = 5
 export const WALK_MIN = 60
 export const WALK_MAX = 220
 
-export const INITIAL: BehaviorState = { mode: 'idle', walk: null, facing: 1 }
+export const INITIAL: BehaviorState = { mode: 'idle', walk: null, scene: null, facing: 1 }
 
 export function step(s: BehaviorState, i: Inputs): Step {
   const events: BehaviorEvent[] = []
@@ -58,9 +64,17 @@ export function step(s: BehaviorState, i: Inputs): Step {
   if (isAsleep && s.mode !== 'sleep') events.push('fell-asleep')
   if (!isAsleep && s.mode === 'sleep') events.push('woke-up')
 
+  // An enemy only starts a fight with a pet that is up and not held; a win ends on its own.
+  let scene = s.scene
+  if (i.isDragging || isAsleep) scene = null
+  else if (i.enemy === 'arrived' && !scene) (scene = 'fight'), events.push('fight-started')
+  else if (i.enemy === 'dead' && scene === 'fight') (scene = 'win'), events.push('fight-won')
+  else if (scene === 'win' && i.sceneOver) scene = null
+
   let mode: Mode
   if (i.isDragging) mode = 'drag'
   else if (isAsleep) mode = 'sleep'
+  else if (scene) mode = scene
   else if (i.isSpeaking) mode = 'talk'
   else if (i.isBalloonOpen) mode = 'idle'
   else {
@@ -82,7 +96,7 @@ export function step(s: BehaviorState, i: Inputs): Step {
     walk = null
   }
 
-  return { state: { mode, walk, facing }, moveBy, events }
+  return { state: { mode, walk, scene, facing }, moveBy, events }
 }
 
 /** Which animation a mode plays. */

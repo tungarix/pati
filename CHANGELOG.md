@@ -2,6 +2,16 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.5.4 (2026-11-01)
+
+### Added
+- **Visitors and fights.** A character pack can now carry a fight scene and enemies (`scenes` and `enemies` in `character.json`, see the pack format in the README). When the pet is idle, an enemy walks in from the screen edge in its own small window, the pet fights it, and it vanishes in a puff of smoke. You can pick an enemy up with the mouse and carry it; let go and it falls. Settings > Characters > Enemies: Off, Rare (default), Sometimes, Often. Characters without enemies are unaffected.
+- **Fan packs.** Settings > Characters > Fan packs lists optional extra characters from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)). Nothing is fetched until you press "Load list"; every download is checked against a SHA-256 and unpacked only if it holds nothing but images and JSON.
+
+### Fixed
+- The "new version ready, restart now?" question vanished after two minutes if you were not looking. It now waits ten minutes, like the question itself does.
+- Installing an update opened the installer wizard. It now installs silently and Pati reopens by itself.
+
 ## 0.5.3 (2026-10-31)
 
 ### Fixed

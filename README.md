@@ -19,6 +19,8 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 
 Built-in characters: **Tungarix**, a rock wolf in sunglasses, and **Atlas**, a calm holographic assistant.
 
+Optional **fan packs** (extra characters) can be installed in **Settings > Characters > Fan packs**. Nothing is fetched until you press "Load list"; the packs come from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)), not from this one. They are unofficial fan drawings.
+
 ## Install
 
 Download `Pati Setup x.y.z.exe` from Releases, or build it yourself (below). The installer is not code-signed, so Windows SmartScreen asks "Run anyway".

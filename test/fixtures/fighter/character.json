@@ -1,0 +1,22 @@
+{
+  "name": "Fighter",
+  "animations": { "idle": { "frames": ["stand.png"], "fps": 1 } },
+  "scenes": {
+    "fight": { "frames": ["fight1.png", "fight2.png", "fight3.png"], "fps": 5 },
+    "win": { "frames": ["win.png"], "fps": 1 }
+  },
+  "enemies": [
+    {
+      "id": "crab",
+      "name": "Crab",
+      "frames": {
+        "walk": ["enemy/walk1.png", "enemy/walk2.png"],
+        "hit": ["enemy/hit.png"],
+        "die": ["enemy/die1.png", "enemy/die2.png"]
+      },
+      "speed": 4,
+      "weight": 1
+    }
+  ],
+  "lines": { "win": ["Done."] }
+}

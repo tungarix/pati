@@ -27,8 +27,8 @@ export interface Area {
 }
 
 // Floatier than real gravity: a cartoon falls slowly enough to be seen.
-const GRAVITY = 2200 // px/s²
-const MAX_FALL = 1900 // px/s
+export const GRAVITY = 2200 // px/s² (enemies fall with it too)
+export const MAX_FALL = 1900 // px/s
 /** Hitting the floor faster than this bounces back up a little. */
 const BOUNCE_SPEED = 650
 /** A window edge that moved this little is still the same floor (windows get nudged). */

@@ -1,12 +1,18 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import type { PetCommand, Settings } from './shared/types.ts'
+import type { EnemyShow, PacksState, PetCommand, Settings } from './shared/types.ts'
 
 // The only door between the windows and the main process.
 const api = {
   getState: () => ipcRenderer.invoke('get-state'),
   onState: (fn: (state: unknown) => void) => ipcRenderer.on('state', (_e, s) => fn(s)),
   onCommand: (fn: (cmd: PetCommand) => void) => ipcRenderer.on('command', (_e, c) => fn(c)),
+  onEnemy: (fn: (show: EnemyShow) => void) => ipcRenderer.on('enemy', (_e, s) => fn(s)),
+  enemyStruck: () => ipcRenderer.send('enemy-struck'),
+  enemyInteractive: (on: boolean) => ipcRenderer.send('enemy-interactive', on),
+  enemyGrab: (offset: { x: number; y: number }) => ipcRenderer.send('enemy-grab', offset),
+  enemyDrop: () => ipcRenderer.send('enemy-drop'),
+  petBusy: (busy: boolean) => ipcRenderer.send('pet-busy', busy),
   setInteractive: (isInteractive: boolean) => ipcRenderer.send('set-interactive', isInteractive),
   dragStart: (offset: { x: number; y: number }) => ipcRenderer.send('drag-start', offset),
   dragEnd: () => ipcRenderer.send('drag-end'),
@@ -38,6 +44,10 @@ const api = {
   modelCancel: () => ipcRenderer.send('model-cancel'),
   modelRemove: () => ipcRenderer.send('model-remove'),
   modelDoc: () => ipcRenderer.send('model-doc'),
+  packsList: (): Promise<PacksState> => ipcRenderer.invoke('packs-list'),
+  packInstall: (id: string) => ipcRenderer.send('pack-install', id),
+  packRemove: (id: string) => ipcRenderer.send('pack-remove', id),
+  onPacks: (fn: (state: PacksState) => void) => ipcRenderer.on('packs', (_e, s) => fn(s)),
   confirmReply: (id: string, answer: 'yes' | 'always' | 'no') => ipcRenderer.send('confirm-reply', id, answer),
 }
 

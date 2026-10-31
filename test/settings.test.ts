@@ -43,3 +43,9 @@ test('settings from before the built-in model get it enabled and not yet offered
   assert.deepEqual(loadSettings(write({ ai: { builtIn: { offered: true } } }), 'tr').ai.builtIn, { enabled: true, offered: true })
   assert.deepEqual(loadSettings(write({ ai: { builtIn: { enabled: false, offered: true } } }), 'tr').ai.builtIn, { enabled: false, offered: true })
 })
+
+test('enemies default to rare, and a saved choice or a partial section merges', () => {
+  assert.equal(loadSettings(write({}), 'tr').enemies.frequency, 'rare')
+  assert.equal(loadSettings(write({ enemies: { frequency: 'often' } }), 'tr').enemies.frequency, 'often')
+  assert.equal(loadSettings(write({ enemies: {} }), 'tr').enemies.frequency, 'rare')
+})

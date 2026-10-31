@@ -55,6 +55,13 @@ let dustUntil = 0
 /** Playing guitar while idle, until then. */
 let guitarUntil = 0
 let isSpeaking = false
+/** Fighting an enemy: news from the main process for the next tick, when the blow lands, how long the win pose lasts. */
+let enemyNews: 'arrived' | 'dead' | null = null
+let strikeAt = 0
+let isStruck = false
+let winUntil = 0
+/** What the main process was last told, so it hears only changes. */
+let reportedBusy = false
 let isChatting = false
 /** The balloon's input is asking for the server's API key instead of a message. */
 let isAskingKey = false
@@ -80,7 +87,7 @@ const lines = (): CharacterLines => character.lines[settings.language]
 
 function framesOf(name: AnimationName) {
   const a = character.animations
-  return a[name] ?? (name === 'fall' ? a.drag : undefined) ?? a.idle
+  return a[name] ?? character.scenes[name] ?? (name === 'fall' ? a.drag : undefined) ?? a.idle
 }
 
 function setAnim(name: AnimationName) {
@@ -536,7 +543,8 @@ function askConfirm(id: string, text: string, yesNo = false, later = false) {
   }
   b.after(row)
   thread.scrollTop = thread.scrollHeight
-  balloonUntil = Date.now() + 120_000
+  // A plain yes/no (an update, the model download) waits as long as the main process does; an unseen question must not vanish.
+  balloonUntil = Date.now() + (yesNo ? 600_000 : 120_000)
 }
 
 function openMenu() {
@@ -660,10 +668,19 @@ async function tickOnce() {
     isSpeaking,
     wander: settings.wander && focus.phase !== 'focus' && now >= dustUntil,
     hitEdge,
+    enemy: enemyNews,
+    sceneOver: now >= winUntil,
     random: Math.random,
   })
   behavior = r.state
   hitEdge = false
+  enemyNews = null
+  if (r.events.includes('fight-started')) startFight(now)
+  if (r.events.includes('fight-won')) startWin(now)
+  if (behavior.mode === 'fight' && !isStruck && now >= strikeAt) (isStruck = true), api.enemyStruck()
+  // Enemies come only when the balloon is shut, it is awake and quiet.
+  const busy = !balloon.hidden || isSpeaking || behavior.mode === 'sleep'
+  if (busy !== reportedBusy) api.petBusy((reportedBusy = busy))
   if (r.events.includes('woke-up') && !isQuiet()) say(pick(lines().wake), [], 4)
   if (r.events.includes('walk-ended')) api.walkEnded()
 
@@ -688,6 +705,20 @@ async function tickOnce() {
   if (behavior.mode === 'idle' && balloon.hidden && character.animations.guitar && now > guitarUntil && Math.random() < 1 / 1800)
     guitarUntil = now + 6000
   zzz.hidden = behavior.mode !== 'sleep'
+}
+
+/** Plays the whole fight scene once (at least 0.6 s), then the blow lands. */
+function startFight(now: number) {
+  const { frames, fps } = framesOf('fight')
+  strikeAt = now + Math.max(600, (frames.length / fps) * 1000)
+  isStruck = false
+}
+
+function startWin(now: number) {
+  const { frames, fps } = framesOf('win')
+  winUntil = now + Math.max(2500, (frames.length / fps) * 1000)
+  const won = lines().win
+  if (won?.length) say(pick(won), [], 4)
 }
 
 function applyLook() {
@@ -720,6 +751,10 @@ api.onCommand((cmd: PetCommand) => {
     } else say(cmd.text)
   }
   else if (cmd.type === 'menu') openMenu()
+  else if (cmd.type === 'enemy') {
+    enemyNews = cmd.event
+    if (cmd.side) behavior = { ...behavior, facing: cmd.side } // turn to face it
+  }
   else if (cmd.type === 'physics') {
     isAirborne = cmd.airborne
     motion.lean.target = cmd.tilt

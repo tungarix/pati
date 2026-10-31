@@ -19,6 +19,8 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 
 Yerleşik karakterler: güneş gözlüklü rock kurdu **Tungarix** ve sakin holografik asistan **Atlas**.
 
+İsteğe bağlı **hayran paketleri** (ek karakterler) **Ayarlar > Karakter > Hayran paketleri**nden kurulur. "Listeyi getir"e basmadan hiçbir şey indirilmez; paketler bu depodan değil, ayrı bir depodan ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)) gelir. Resmî değil, hayran çizimleridir.
+
 ## Kurulum
 
 Releases'tan `Pati Setup x.y.z.exe` dosyasını indir ya da kendin derle (aşağıda). Kurulum dosyası imzalı değil; Windows SmartScreen "Yine de çalıştır" diye sorar.

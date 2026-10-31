@@ -1,7 +1,7 @@
 // Shapes shared by the main process, the preload bridge and the windows.
 
 /** Optional like the rest: `fall` (in the air; else `drag`), `dust` (after a landing), `guitar` (now and then when idle). */
-export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fall' | 'dust' | 'guitar'
+export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fall' | 'dust' | 'guitar' | 'fight' | 'win'
 
 export interface Animation {
   frames: string[]
@@ -41,6 +41,30 @@ export interface CharacterFile {
   persona?: string | Partial<Record<Lang, string>>
   /** Flat lines in `language`, or one set per language: `{ "tr": {...}, "en": {...} }`. */
   lines?: Partial<CharacterLines> | Partial<Record<Lang, Partial<CharacterLines>>>
+  /** Extra scenes by name: `fight` and `win` play when an enemy comes; others are reserved. */
+  scenes?: Record<string, Animation>
+  /** Who turns up to fight; needs the `fight` scene, else no enemy ever comes. */
+  enemies?: EnemyFile[]
+}
+
+/** One enemy as written in character.json; frame paths are relative to the pack folder. */
+export interface EnemyFile {
+  id: string
+  name?: string
+  frames: { walk: string[]; hit: string[]; die: string[] }
+  /** Walking speed, 1-8 (times 25 px/s); default 4. */
+  speed?: number
+  /** Chance relative to the other enemies; default 1. */
+  weight?: number
+}
+
+/** A loaded enemy: frames are file URLs. */
+export interface Enemy {
+  id: string
+  name: string
+  frames: { walk: string[]; hit: string[]; die: string[] }
+  speed: number
+  weight: number
 }
 
 export interface CharacterLines {
@@ -56,6 +80,8 @@ export interface CharacterLines {
   lateNight: string[]
   /** Said after 90 minutes at the computer without a pause. */
   breakTime: string[]
+  /** Said after winning a fight; optional, a pack without it just wins silently. */
+  win?: string[]
 }
 
 /** A loaded pack: frame paths resolved to file URLs, lines filled with defaults. */
@@ -73,6 +99,11 @@ export interface Character {
   /** Complete for every language: the pack's own lines, then its main language, then defaults. */
   lines: Record<Lang, CharacterLines>
   persona: Record<Lang, string>
+  /** Scenes by name, frames as file URLs; `fight` + `win` + enemies = the character fights. */
+  scenes: Record<string, Animation>
+  enemies: Enemy[]
+  /** Fields of the pack that were ignored (feature off), shown next to the pack problems. */
+  notes: string[]
 }
 
 export type Reminder =
@@ -81,12 +112,38 @@ export type Reminder =
   /** Fires once at `at` (ms since the epoch); set by the chat's reminder tool. */
   | { id: string; text: string; enabled: boolean; kind: 'once'; at: number }
 
+/** One entry of the fan-pack index (packs.json in the packs repository's release). */
+export interface PackInfo {
+  id: string
+  name: string
+  description: string
+  file: string
+  size: number
+  sha256: string
+  icon?: string
+}
+
+/** What the settings window shows of the pack store; `packs` stays empty until the user loads the list. */
+export interface PacksState {
+  loaded: boolean
+  packs: (PackInfo & { installed: boolean })[]
+  /** Id being downloaded or removed, or ''. */
+  busy: string
+  /** 0-100 while a pack downloads. */
+  percent: number
+  /** One short, already-localized message, or ''. */
+  error: string
+}
+
 /** One OpenAI-compatible server (llama.cpp, Ollama, LM Studio...); empty model = its first. */
 export interface AiServer {
   baseUrl: string
   apiKey: string
   model: string
 }
+
+/** How often an enemy turns up: never, about every 20, 10 or 4 minutes. */
+export type EnemyFrequency = 'off' | 'rare' | 'sometimes' | 'often'
 
 export interface Settings {
   language: Lang
@@ -121,6 +178,8 @@ export interface Settings {
   /** Talking by voice: a global shortcut starts listening, whisper.cpp writes it down; empty paths = found on their own. */
   voice: { enabled: boolean; shortcut: string; whisperPath: string; modelPath: string }
   /** Speaking unasked: morning briefing, a late-night word, break nudges. */
+  /** Enemies that walk in and fight the character (only for packs that draw them). */
+  enemies: { frequency: EnemyFrequency }
   proactive: { enabled: boolean; briefing: boolean; lateNight: boolean; breaks: boolean }
   sleepAfterSeconds: number
   wander: boolean
@@ -148,4 +207,20 @@ export type PetCommand =
   /** The push-to-talk shortcut was pressed: start listening, or stop if already listening. */
   | { type: 'listen' }
   /** How the body moves: in the air (no walking, falling pose), the lean to swing towards (degrees), stretch of a fast fall, speed it just hit a floor with. */
+  /** An enemy reached the pet (`arrived`) or is gone (`dead`); the pet plays its fight and win scenes. */
+  | { type: 'enemy'; event: 'arrived' | 'dead'; /** Which side the enemy comes from: 1 right, -1 left. */ side?: 1 | -1 }
   | { type: 'physics'; airborne: boolean; tilt: number; stretch: number; impact: number }
+
+/** What the enemy window draws now: a list of frames, looped or played once (the last stays). */
+export interface EnemyShow {
+  frames: string[]
+  fps: number
+  loop: boolean
+  /** Enemies are drawn facing left; flipped when they walk right. */
+  flip: boolean
+  pixel: boolean
+  /** The pet's size setting; frames are drawn for 100%. */
+  scale: number
+  /** Where the creature is drawn (frame pixels, 100%, unflipped); null = not to be touched. */
+  box: { x: number; y: number; w: number; h: number } | null
+}

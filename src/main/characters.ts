@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import type { Animation, AnimationName, Character, CharacterFile, CharacterLines, Lang, PackManifest } from '../shared/types.ts'
+import type { Animation, AnimationName, Character, CharacterFile, CharacterLines, Enemy, EnemyFile, Lang, PackManifest } from '../shared/types.ts'
 
 const LANGS: Lang[] = ['tr', 'en']
 
@@ -38,6 +38,8 @@ export interface PackProblem {
   id: string
   dir: string
   reason: string
+  /** The pack still loads; only an optional feature (enemies) is off. */
+  soft?: boolean
 }
 
 function readJson<T>(file: string): T {
@@ -72,6 +74,48 @@ function resolvePersona(file: CharacterFile, name: string): Record<Lang, string>
   return { tr: own.tr ?? main ?? generic.tr, en: own.en ?? main ?? generic.en }
 }
 
+/** Frame paths of a pack as file URLs; a path that leaves the pack folder or is missing throws. */
+function frameUrls(root: string, frames: unknown): string[] {
+  if (!Array.isArray(frames) || frames.length === 0 || frames.some(f => typeof f !== 'string')) throw new Error('kare listesi geçersiz')
+  return (frames as string[]).map(f => {
+    const full = path.resolve(root, f)
+    if (!full.startsWith(root + path.sep)) throw new Error(`kare paket dışında: ${f}`)
+    if (!fs.existsSync(full)) throw new Error(`kare bulunamadı: ${f}`)
+    return pathToFileURL(full).href
+  })
+}
+
+/** Optional scenes; a broken one is dropped with a note instead of failing the pack. */
+function readScenes(root: string, file: CharacterFile, notes: string[]): Character['scenes'] {
+  const scenes: Character['scenes'] = {}
+  for (const [name, spec] of Object.entries(file.scenes ?? {})) {
+    try {
+      scenes[name] = { frames: frameUrls(root, spec?.frames), fps: spec.fps > 0 ? spec.fps : 2 }
+    } catch (err) {
+      notes.push(`sahne "${name}" kapalı: ${(err as Error).message}`)
+    }
+  }
+  return scenes
+}
+
+/** Enemies need the `fight` scene; any broken enemy is skipped, and none valid = no fights. */
+function readEnemies(root: string, file: CharacterFile, scenes: Character['scenes'], notes: string[]): Enemy[] {
+  if (file.enemies === undefined) return []
+  if (!Array.isArray(file.enemies)) return notes.push('"enemies" bir liste olmalı: düşmanlar kapalı'), []
+  const enemies: Enemy[] = []
+  for (const e of file.enemies as EnemyFile[]) {
+    try {
+      if (!e || typeof e.id !== 'string' || !e.id) throw new Error('"id" eksik')
+      const frames = { walk: frameUrls(root, e.frames?.walk), hit: frameUrls(root, e.frames?.hit), die: frameUrls(root, e.frames?.die) }
+      enemies.push({ id: e.id, name: e.name ?? e.id, frames, speed: Math.min(8, Math.max(1, Number(e.speed) || 4)), weight: Number(e.weight) > 0 ? Number(e.weight) : 1 })
+    } catch (err) {
+      notes.push(`düşman "${e?.id}" kapalı: ${(err as Error).message}`)
+    }
+  }
+  if (enemies.length && !scenes.fight) return notes.push('"scenes.fight" yok: düşmanlar kapalı'), []
+  return enemies
+}
+
 export function readCharacterPack(dir: string, isBuiltIn: boolean): Character {
   const id = path.basename(dir)
   const manifestFile = path.join(dir, 'manifest.json')
@@ -87,14 +131,11 @@ export function readCharacterPack(dir: string, isBuiltIn: boolean): Character {
   const animations = {} as Character['animations']
   for (const [anim, spec] of Object.entries(file.animations) as [AnimationName, Animation][]) {
     if (!spec?.frames?.length) continue
-    const frames = spec.frames.map(f => {
-      const full = path.resolve(dir, f)
-      if (!full.startsWith(root + path.sep)) throw new Error(`kare paket dışında: ${f}`)
-      if (!fs.existsSync(full)) throw new Error(`kare bulunamadı: ${f}`)
-      return pathToFileURL(full).href
-    })
-    animations[anim] = { frames, fps: spec.fps > 0 ? spec.fps : 2, ...(spec.stride && spec.stride > 0 ? { stride: spec.stride } : {}) }
+    animations[anim] = { frames: frameUrls(root, spec.frames), fps: spec.fps > 0 ? spec.fps : 2, ...(spec.stride && spec.stride > 0 ? { stride: spec.stride } : {}) }
   }
+  const notes: string[] = []
+  const scenes = readScenes(root, file, notes)
+  const enemies = readEnemies(root, file, scenes, notes)
 
   return {
     id,
@@ -110,6 +151,9 @@ export function readCharacterPack(dir: string, isBuiltIn: boolean): Character {
     voice: { lang: file.voice?.lang ?? 'tr-TR', rate: file.voice?.rate ?? 1, pitch: file.voice?.pitch ?? 1 },
     lines: resolveLines(file),
     persona: resolvePersona(file, name),
+    scenes,
+    enemies,
+    notes,
   }
 }
 
@@ -127,7 +171,9 @@ export function loadCharacters(builtInDir: string, userDir: string): { character
       const dir = path.join(root, entry.name)
       if (!fs.existsSync(path.join(dir, 'character.json'))) continue
       try {
-        byId.set(entry.name, readCharacterPack(dir, isBuiltIn))
+        const pack = readCharacterPack(dir, isBuiltIn)
+        byId.set(entry.name, pack)
+        for (const reason of pack.notes) problems.push({ id: entry.name, dir, reason, soft: true })
       } catch (err) {
         problems.push({ id: entry.name, dir, reason: (err as Error).message })
       }

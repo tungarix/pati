@@ -1,7 +1,7 @@
 import type { PatiApi } from '../preload.ts'
 import { LANGUAGES, t, type MessageKey } from '../shared/i18n.ts'
 import { PIPER_VOICE, piperWanted } from '../shared/voicePick.ts'
-import type { AiServer, Character, Lang, Reminder, Settings } from '../shared/types.ts'
+import type { AiServer, Character, EnemyFrequency, Lang, PacksState, Reminder, Settings } from '../shared/types.ts'
 
 interface Fact {
   id: string
@@ -18,7 +18,7 @@ interface State {
   settings: Settings
   character: Character
   characters: Character[]
-  problems: { id: string; reason: string }[]
+  problems: { id: string; reason: string; soft?: boolean }[]
   facts: Fact[]
   brainDir: string
   feedback: { up: number; down: number }
@@ -83,7 +83,7 @@ function renderCharacters(problems: State['problems']) {
   $('problems').replaceChildren(
     ...problems.map(p => {
       const li = document.createElement('li')
-      li.textContent = tr('settings.packProblem', { id: p.id, reason: p.reason })
+      li.textContent = tr(p.soft ? 'settings.packNote' : 'settings.packProblem', { id: p.id, reason: p.reason })
       return li
     }),
   )
@@ -95,6 +95,39 @@ $<HTMLSelectElement>('character').addEventListener('change', e => {
 })
 $('open-folder').addEventListener('click', () => api.openCharactersFolder())
 $('reload').addEventListener('click', async () => apply((await api.reloadCharacters()) as State))
+
+// ---- Fan packs ----------------------------------------------------------------
+
+function renderPacks(s: PacksState) {
+  $('packs-status').textContent = s.error
+  const list = $('packs-list')
+  $<HTMLButtonElement>('packs-load').disabled = s.busy !== ''
+  list.replaceChildren(
+    ...s.packs.map(p => {
+      const row = document.createElement('div')
+      row.className = 'row'
+      const info = document.createElement('span')
+      info.style.flex = '1'
+      info.textContent = `${p.name} (${(p.size / 2 ** 20).toFixed(1)} MB)${p.description ? ' - ' + p.description : ''}`
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.disabled = s.busy !== ''
+      if (s.busy === p.id) button.textContent = p.installed ? '…' : `${s.percent}%`
+      else if (p.installed) {
+        button.textContent = tr('settings.packsRemove')
+        button.onclick = () => api.packRemove(p.id)
+      } else {
+        button.textContent = tr('settings.packsInstall')
+        button.onclick = () => api.packInstall(p.id)
+      }
+      row.append(info, ...(p.installed && s.busy !== p.id ? [Object.assign(document.createElement('span'), { className: 'muted', textContent: tr('settings.packsInstalled') })] : []), button)
+      return row
+    }),
+  )
+}
+
+$('packs-load').addEventListener('click', async () => renderPacks(await api.packsList()))
+api.onPacks(renderPacks)
 
 // ---- Speech -------------------------------------------------------------------
 
@@ -449,6 +482,7 @@ function apply(state: State) {
     save()
   }
   renderVoice(state.voice)
+  renderEnemies()
   bindCheck('wander', () => settings.wander, v => (settings.wander = v))
   bindCheck('physics', () => settings.physics, v => (settings.physics = v))
   bindCheck('tips-enabled', () => settings.tips.enabled, v => (settings.tips.enabled = v))
@@ -461,6 +495,19 @@ function apply(state: State) {
   bindNumber('sleep-after', () => settings.sleepAfterSeconds / 60, v => (settings.sleepAfterSeconds = Math.round(v * 60)))
   bindCheck('open-at-login', () => settings.openAtLogin, v => (settings.openAtLogin = v))
   renderReminders()
+}
+
+function renderEnemies() {
+  const select = $<HTMLSelectElement>('enemies')
+  const options: [EnemyFrequency, MessageKey][] = [['off', 'settings.enemiesOff'], ['rare', 'settings.enemiesRare'], ['sometimes', 'settings.enemiesSometimes'], ['often', 'settings.enemiesOften']]
+  select.replaceChildren(...options.map(([v, key]) => new Option(tr(key), v, false, settings.enemies.frequency === v)))
+  select.onchange = () => {
+    settings.enemies.frequency = select.value as EnemyFrequency
+    save()
+  }
+  // Only a character that draws enemies and a fight can have any.
+  const current = characters.find(c => c.id === settings.characterId) ?? characters[0]
+  $('enemies-hint').textContent = current?.enemies.length ? '' : tr('settings.enemiesNone')
 }
 
 function renderModel(m: ModelState) {
