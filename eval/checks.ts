@@ -14,6 +14,8 @@ export type ArgSpec = string | number | string[]
 export interface Expect {
   tool?: string | null
   anyTool?: string[]
+  /** Listed tools may be called, or none at all; a tool outside the list fails. */
+  allowTools?: string[]
   args?: Record<string, ArgSpec>
   contains?: string[]
   notContains?: string[]
@@ -112,7 +114,10 @@ export function checkFire(calls: ToolRec[], e: Expect, now: Date): Check {
 export function checkTool(calls: ToolRec[], e: Expect): Check[] {
   const out: Check[] = []
   const names = calls.map(c => c.name)
-  if (e.tool === null) out.push({ name: 'tool', ok: names.length === 0, reason: names.length ? `araç çağırdı: ${names.join(', ')}` : '' })
+  if (e.allowTools) {
+    const extra = names.filter(n => !e.allowTools!.includes(n))
+    out.push({ name: 'tool', ok: extra.length === 0, reason: extra.length ? `izin dışı araç: ${extra.join(', ')}` : '' })
+  } else if (e.tool === null) out.push({ name: 'tool', ok: names.length === 0, reason: names.length ? `araç çağırdı: ${names.join(', ')}` : '' })
   else {
     const want = e.anyTool ?? (e.tool ? [e.tool] : null)
     if (want) {
@@ -185,7 +190,7 @@ export function styleFlags(answer: string, persona = ''): string[] {
 
 export const emojiCount = (s: string) => (s.match(/\p{Extended_Pictographic}/gu) ?? []).length
 
-const KEYS = ['tool', 'anyTool', 'args', 'contains', 'notContains', 'maxSentences', 'fireAt', 'fireIn', 'route', 'admits']
+const KEYS = ['tool', 'anyTool', 'allowTools', 'args', 'contains', 'notContains', 'maxSentences', 'fireAt', 'fireIn', 'route', 'admits']
 
 /** Schema and regex problems of a case list, plus the model-level cases the app would answer without the model. */
 export function validateCases(cases: Case[]): { errors: string[]; caught: string[] } {
@@ -223,6 +228,10 @@ export function validateCases(cases: Case[]): { errors: string[]; caught: string
     if (e.fireAt !== undefined && !/^\d{1,2}:\d{2}$/.test(e.fireAt)) errors.push(`${id}: fireAt HH:MM olmalı`)
     if (e.fireAt !== undefined && e.fireIn !== undefined) errors.push(`${id}: fireAt ile fireIn birlikte olmaz`)
     if (e.tool !== undefined && e.anyTool) errors.push(`${id}: tool ile anyTool birlikte olmaz`)
+    if (e.allowTools !== undefined) {
+      if (!Array.isArray(e.allowTools) || !e.allowTools.every(t => typeof t === 'string')) errors.push(`${id}: allowTools string dizisi olmalı`)
+      if (e.tool !== undefined || e.anyTool) errors.push(`${id}: allowTools ile tool/anyTool birlikte olmaz`)
+    }
   }
   for (const c of cases) {
     const id = c.id ?? '?'

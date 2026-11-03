@@ -9,17 +9,40 @@ folders, music and volume, notes, battery status, and short small talk. Mostly T
   (`mmproj-4B-F16.gguf`) is unsloth's conversion of the unchanged base projector.
 - **File:** GGUF, Q4_K_M, 2.5 GB, split in two parts for GitHub. Load the first part; llama.cpp reads both.
 - **Managed install:** when Pati installs it (offer on first start, or Settings > AI > Pati-4B), the files and llama.cpp live in `%LOCALAPPDATA%\Pati\model` (`llama\` holds llama.cpp, `llama-server.log` the last run's log). Pati starts the server on `127.0.0.1:18080` (or the next free port up to 18085) and stops it on quit.
-- **Data (v3):** about 1,200 synthetic conversations built for Pati: the correct tool calls come from templates; the
+- **Data (v4.2):** about 2,000 synthetic conversations built for Pati (the 1,200 of v3 plus about 870 new ones): the correct tool calls come from templates; the
   replies were first written by a local Qwen3.5-9B, then every one was scored for grammar, naturalness, invented facts
   and consistency with the tool results, and flawed ones were rewritten and re-checked. It includes conversations where
   the same question is asked again and gets a different answer, short multi-turn chats, opening files by name, and honest
-  "I can't do that" answers. No real user data. The test cases below were kept out of the training data.
-- **Training:** QLoRA, 1.5 epochs (225 steps), about 100 minutes on an 8 GB laptop GPU. Only the assistant's tool calls
+  "I can't do that" answers. The new part teaches what v3 got wrong: not saving passing plans as facts, using the facts
+  it already has, opening files from indirect requests, telling what it can and can't do, and not repeating a tool call
+  when the user only says thanks. Those replies were written by Claude Haiku, checked by rules and scored by Claude
+  Sonnet; only the ones scoring 4 of 5 or more were kept. No real user data. The test cases below were kept out of the
+  training data.
+- **Training:** QLoRA, 1.5 epochs (about 390 steps), about 3 hours on an 8 GB laptop GPU. Only the assistant's tool calls
   and replies after the last user message were trained (earlier turns of a conversation are context only, except in
   the repeat and multi-turn examples).
 
 ## How it scores
-**v3** on Pati's stricter test set (`eval/cases.json` + `eval/cases-v2.json`, 158 Turkish cases, each run three times,
+**v4.2** against v3 on the same 158 cases, each model measured twice (three runs per case each time) with the app's
+settings. The cases were made stricter since the v3 numbers below, so v3 scores 83% here, not 82%:
+
+| | v3 | v4.2 |
+|---|---|---|
+| Overall | 83% | **89%** (+5.9 and +5.5 points in the two measurements; the interval stays above zero) |
+| Reminders | 96% | 97% |
+| Actions (notes, music, apps, sites) | 93% | 96% |
+| Honesty about what it can't do | 79% | 84% |
+| Multi-turn chat | 69% | 85% |
+| Casual Turkish with typos and slang | 75% | 79.6% (83% in one measurement, 76% in the other) |
+| Using saved facts | 69% | 83% |
+| Opening a named file | 74% | 95% |
+| Time and date | 96% | 92% |
+| Plain, short style | 100% | 96% |
+| Same question asked again | 63% | 67% |
+
+Per-model tables: [BENCHMARK.md](BENCHMARK.md).
+
+Earlier, **v3** on Pati's stricter test set (`eval/cases.json` + `eval/cases-v2.json`, 158 Turkish cases, each run three times,
 same settings as the app) against the first Pati-4B (v1) with the same settings:
 
 | | v1 | v3 |
@@ -55,8 +78,8 @@ The test set and the training data were made by the same people, so treat these 
 ## Known limits
 - It knows what Qwen3.5-4B knows and no more; it can get facts wrong. Don't rely on it for facts, code or long answers.
 - Asked for something it can't do (order food, live prices), it sometimes opens a web search instead of just saying so.
-- It sometimes asks you instead of using a fact it already has about you; v3 is weaker at this than v1.
-- If you installed Pati-4B with Pati 0.4.5 or 0.4.6 you keep running v1. To get v3: Settings > AI > Pati-4B > Remove, then Install (about 2.7 GB; the vision file and llama.cpp stay).
+- Very casual messages (slang, dropped letters, "eyw ya sağol") are its weakest spot; there are no such examples in its training data yet.
+- If you installed Pati-4B earlier you keep running that version (v1 or v3). To get v4.2: Settings > AI > Pati-4B > Remove, then Install (about 2.7 GB; the vision file and llama.cpp stay).
 - It may still write Markdown or LaTeX now and then; Pati's balloon strips most of it.
 
 ## License

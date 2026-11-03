@@ -184,3 +184,13 @@ test('cases-v2.json is valid, unique against cases.json and every model-level tu
   assert.ok(v2.length >= 70)
   for (const c of v2.filter(x => x.expect?.route !== undefined)) assert.ok(checkRoute(c.user!, c.expect!.route ?? null).ok, c.id)
 })
+
+test('allowTools: listed tools or none pass, others fail, and it cannot be combined with tool', () => {
+  const e = { allowTools: ['remember'] }
+  const ok = (calls: { name: string; args: Record<string, unknown> }[]) => checkExpect(e, '', calls).every(c => c.ok)
+  assert.ok(ok([]))
+  assert.ok(ok([{ name: 'remember', args: {} }]))
+  assert.ok(!ok([{ name: 'set_reminder', args: {} }]))
+  const bad: Case = { id: 'x', category: 'sohbet', character: 'tungarix', user: 'selam', expect: { tool: null, allowTools: ['remember'] } }
+  assert.ok(validateCases([bad]).errors.some(m => m.includes('allowTools')))
+})

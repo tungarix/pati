@@ -30,7 +30,8 @@ export interface Manifest {
 
 const RELEASE_V1 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v1/'
 const RELEASE_V3 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v3/'
-const file = (name: string, size: number, sha256: string, url = RELEASE_V3 + name): ModelFile => ({ name, url, size, sha256 })
+const RELEASE_V42 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v42/'
+const file = (name: string, size: number, sha256: string, url = RELEASE_V42 + name): ModelFile => ({ name, url, size, sha256 })
 const MMPROJ = file('mmproj-4B-F16.gguf', 672423616, 'cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864', RELEASE_V1 + 'mmproj-4B-F16.gguf')
 
 export const MANIFEST: Manifest = {
@@ -41,14 +42,14 @@ export const MANIFEST: Manifest = {
     'https://github.com/ggml-org/llama.cpp/releases/download/b11799/llama-b11799-bin-win-vulkan-x64.zip',
   ),
   model: [
-    file('Pati-4B-v3-Q4_K_M-00001-of-00002.gguf', 1901243232, '832250202dca759d726827a233f27c34e2ddbfbbf3cc6c3b61fa6ea152087e0c'),
-    file('Pati-4B-v3-Q4_K_M-00002-of-00002.gguf', 807561120, '0eb187efe46f60acd71115fa39d0937b7a7f271834b7bd9eb02d47746e7b2534'),
+    file('Pati-4B-v42-Q4_K_M-00001-of-00002.gguf', 1901243232, '1621020f400eab314d5dcfbe5cc25f77d49c1b54a3fe4a8b3a4003e40bf2784f'),
+    file('Pati-4B-v42-Q4_K_M-00002-of-00002.gguf', 807561120, '2fad4ea90da2e24251d350249ee3956bf78806c8c99cafb7b861ced6d042ff9e'),
     MMPROJ,
   ],
-  // Pati 0.4.5/0.4.6 installs hold v1; they keep running it until the user reinstalls (Settings > AI > Pati-4B > Remove, Install).
+  // Installs from Pati 0.5.x hold v3; they keep running it until the user reinstalls (Settings > AI > Pati-4B > Remove, Install).
   legacy: [
-    file('Pati-4B-Q4_K_M-00001-of-00002.gguf', 1901243136, '85beb3a5013cfe300f834a26526fca4da666a48cd341d6a141672817f3695179', RELEASE_V1 + 'Pati-4B-Q4_K_M-00001-of-00002.gguf'),
-    file('Pati-4B-Q4_K_M-00002-of-00002.gguf', 807561120, 'bcd6553508354f8d91b45d555786f55196ea2b0380f3382f7ecd8469b34e593b', RELEASE_V1 + 'Pati-4B-Q4_K_M-00002-of-00002.gguf'),
+    file('Pati-4B-v3-Q4_K_M-00001-of-00002.gguf', 1901243232, '832250202dca759d726827a233f27c34e2ddbfbbf3cc6c3b61fa6ea152087e0c', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00001-of-00002.gguf'),
+    file('Pati-4B-v3-Q4_K_M-00002-of-00002.gguf', 807561120, '0eb187efe46f60acd71115fa39d0937b7a7f271834b7bd9eb02d47746e7b2534', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00002-of-00002.gguf'),
     MMPROJ,
   ],
 }
