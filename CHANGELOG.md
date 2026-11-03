@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## 0.5.5 (2026-11-03)
+
+### Changed
+- **New model: Pati-4B v4.2.** It scores 89% on Pati's Turkish test set, up from 83% for v3 (multi-turn chat 69% to 85%, honesty about what it can't do 79% to 84%, reminders 97%, actions 96%). It no longer saves passing plans as facts, uses the facts it already has, and opens files from indirect requests. Casual slang and typos are still its weakest spot (just under 80%). New installs get v4.2; an installed v3 keeps working until you remove it and install again (Settings > AI > Pati-4B). Details in [docs/PATI-4B.md](docs/PATI-4B.md).
+
 ## 0.5.4 (2026-11-01)
 
 ### Added
