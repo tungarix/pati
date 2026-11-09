@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   release:
@@ -16,14 +17,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run dist
+      - run: npm run dist -- --publish never
 
       - name: Publish draft release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF_NAME}"
+          # run by hand on main: the tag is the one package.json names
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then tag="${GITHUB_REF_NAME}"; else tag="v$(node -p "require('./package.json').version")"; fi
           ver="${tag#v}"
 
           # electron-builder writes "Pati Setup X.exe" but latest.yml points at "Pati-Setup-X.exe"
