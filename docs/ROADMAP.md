@@ -96,9 +96,9 @@ En büyük iş; ayrı dalda, sırayla:
 - Sonra: aynı anda birden fazla karakter.
 
 ### v0.8: depo ve kalite
-- GitHub Actions: her push'ta tip kontrolü, testler; `v*` etiketinde kurulum dosyasını Releases'a koyma.
-- ESLint + Prettier.
-- `electron-updater` ile otomatik güncelleme.
+- ~~GitHub Actions~~ (yapıldı): her push'ta tip kontrolü ve testler; `v*` etiketinde kurulum dosyası Releases'a taslak olarak yüklenir, yayına almayı insan yapar.
+- ~~`electron-updater`~~ (yapıldı): güncelleme var diye sorar, onaylanırsa sessizce kurar.
+- ESLint + Prettier (hâlâ açık).
 
 ### v0.9: eklenti sistemi
 - Eklenti = `manifest.json` + tek JS dosyası; ayrı süreçte, yalnızca izin verilen API ile

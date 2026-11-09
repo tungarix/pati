@@ -180,6 +180,8 @@ export interface Settings {
   /** Speaking unasked: morning briefing, a late-night word, break nudges. */
   /** Enemies that walk in and fight the character (only for packs that draw them). */
   enemies: { frequency: EnemyFrequency }
+  /** Fan packs: `offered` = the one-time download offer was asked (yes, no or failed), never asked again. */
+  packs: { offered: boolean }
   proactive: { enabled: boolean; briefing: boolean; lateNight: boolean; breaks: boolean }
   sleepAfterSeconds: number
   wander: boolean

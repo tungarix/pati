@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // No servers yet: the first chat looks for one on the usual local ports.
   ai: { enabled: true, servers: [], memory: true, tools: { clipboard: false, web: false, actions: true }, allowedActions: [], brainDir: '', builtIn: { enabled: true, offered: false } },
   enemies: { frequency: 'rare' },
+  packs: { offered: false },
   proactive: { enabled: true, briefing: true, lateNight: true, breaks: true },
   voice: { enabled: true, shortcut: 'Control+Shift+Space', whisperPath: '', modelPath: '' },
   sleepAfterSeconds: 120,
@@ -60,6 +61,7 @@ export function loadSettings(file: string, firstRunLang: Lang): Settings {
       ai: migrateAi(saved.ai),
       proactive: { ...DEFAULT_SETTINGS.proactive, ...saved.proactive },
       enemies: { ...DEFAULT_SETTINGS.enemies, ...saved.enemies },
+      packs: { ...DEFAULT_SETTINGS.packs, ...saved.packs },
       voice: { ...DEFAULT_SETTINGS.voice, ...saved.voice },
       updates: { ...DEFAULT_SETTINGS.updates, ...saved.updates },
       size: Math.min(2, Math.max(0.5, Number(saved.size) || 1)),

@@ -9,3 +9,6 @@ characters-draft/
 
 # Piper + Türkçe ses: scripts/fetch-piper.mjs indirir
 build/piper/
+
+# egitim artigi (kok dizinde olusur)
+unsloth_compiled_cache/

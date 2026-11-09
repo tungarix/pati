@@ -1407,6 +1407,26 @@ async function changePack(id: string, install: boolean): Promise<void> {
   }
 }
 
+/** Asks once whether to fetch every official fan pack; the flag is set first, so a no or a failure is never asked again. */
+async function offerPacks(): Promise<void> {
+  const lang = settings.language
+  applySettings({ ...settings, packs: { offered: true } })
+  if (!(await askYesNo(t(lang, 'packs.offer')))) return send({ type: 'ai', event: 'done', text: t(lang, 'packs.declined') })
+  try {
+    packIndex = await fetchIndex()
+    packs.loaded = true
+  } catch (err) {
+    return send({ type: 'ai', event: 'error', text: packMessage(err) })
+  }
+  const todo = packIndex.filter(p => !(p.id in packStore.record()))
+  for (const [i, p] of todo.entries()) {
+    send({ type: 'ai', event: 'status', text: t(lang, 'packs.progress', { name: p.name, n: i + 1, total: todo.length }) })
+    await changePack(p.id, true)
+    if (packs.error) return send({ type: 'ai', event: 'error', text: packs.error })
+  }
+  send({ type: 'ai', event: 'done', text: t(lang, 'packs.ready') })
+}
+
 ipcMain.on('pack-install', (_e, id: unknown) => typeof id === 'string' && void changePack(id, true))
 ipcMain.on('pack-remove', (_e, id: unknown) => typeof id === 'string' && void changePack(id, false))
 
@@ -1456,6 +1476,12 @@ if (!app.requestSingleInstanceLock()) {
       if (settings.ai.builtIn.offered || !settings.ai.enabled || localModel.status() === 'installed' || settings.ai.servers.length > 0) return
       if ((await detectServers()).length === 0) void offerModel()
     }, 10_000)
+    // Then the one-time fan pack offer, once the model offer (or its download) is out of the way.
+    setTimeout(async () => {
+      while (offering || installing) await new Promise(r => setTimeout(r, 10_000))
+      // Someone who already installed a pack from the store knows where it is: no question.
+      if (!settings.packs.offered && Object.keys(packStore.record()).length === 0) void offerPacks()
+    }, 30_000)
   })
 
   // The pet lives in the tray: closing the settings window must not quit.
