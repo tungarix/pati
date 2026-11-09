@@ -5,6 +5,10 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 
 [Türkçe](README.tr.md)
 
+<p align="center">
+  <img src="docs/pati-characters.jpg" width="80%" alt="Pati characters: the Tungarix wolf standing, falling and playing guitar.">
+</p>
+
 - **Lives on your desktop.** A small character above every window. It stands on the taskbar and on the top edges of your windows, walks off them and falls; drag it anywhere or throw it across the screen. It wanders around and falls asleep when you step away.
 - **Chats with a local AI.** Connects to [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) or [LM Studio](https://lmstudio.ai) running on your machine. Each character has its own personality.
 - **Remembers you.** It keeps a *brain*: a folder of plain Markdown with your daily chats, a summary of each day and the facts you shared. Open it in [Obsidian](https://obsidian.md) and edit what it knows.

@@ -5,6 +5,10 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 
 [English](README.md)
 
+<p align="center">
+  <img src="docs/pati-characters.jpg" width="80%" alt="Pati karakterleri: Tungarix kurdu ayakta, düşerken ve gitar çalarken.">
+</p>
+
 - **Masaüstünde yaşar.** Her pencerenin üstünde duran küçük bir karakter. Görev çubuğunda ve pencerelerin üst kenarında durur, kenardan yürüyüp düşer; istediğin yere sürükle ya da ekranın öbür ucuna fırlat. Kendi kendine dolaşır, sen uzaklaşınca uyur.
 - **Yerel yapay zekâyla sohbet eder.** Bilgisayarında çalışan [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com) ya da [LM Studio](https://lmstudio.ai)'ya bağlanır. Her karakterin kendi kişiliği var.
 - **Seni hatırlar.** Bir *beyni* var: günlük sohbetlerin, her günün özeti ve senin paylaştığın bilgiler, düz Markdown dosyaları olarak bir klasörde durur. [Obsidian](https://obsidian.md)'da açıp ne bildiğini düzenleyebilirsin.
