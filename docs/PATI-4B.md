@@ -9,22 +9,62 @@ folders, music and volume, notes, battery status, and short small talk. Mostly T
   (`mmproj-4B-F16.gguf`) is unsloth's conversion of the unchanged base projector.
 - **File:** GGUF, Q4_K_M, 2.5 GB, split in two parts for GitHub. Load the first part; llama.cpp reads both.
 - **Managed install:** when Pati installs it (offer on first start, or Settings > AI > Pati-4B), the files and llama.cpp live in `%LOCALAPPDATA%\Pati\model` (`llama\` holds llama.cpp, `llama-server.log` the last run's log). Pati starts the server on `127.0.0.1:18080` (or the next free port up to 18085) and stops it on quit.
-- **Data (v4.2):** about 2,000 synthetic conversations built for Pati (the 1,200 of v3 plus about 870 new ones): the correct tool calls come from templates; the
-  replies were first written by a local Qwen3.5-9B, then every one was scored for grammar, naturalness, invented facts
-  and consistency with the tool results, and flawed ones were rewritten and re-checked. It includes conversations where
-  the same question is asked again and gets a different answer, short multi-turn chats, opening files by name, and honest
-  "I can't do that" answers. The new part teaches what v3 got wrong: not saving passing plans as facts, using the facts
+- **Data (v4.4):** about 2,400 synthetic conversations built for Pati: the 2,000 of v4.2 plus about 370 new ones. The
+  v4.2 part is the 1,200 of v3 plus about 870 more. The correct tool calls come from templates; the replies in the v3
+  part were first written by a local Qwen3.5-9B, then every one was scored for grammar, naturalness, invented facts and
+  consistency with the tool results, and flawed ones were rewritten and re-checked. It includes conversations where the
+  same question is asked again and gets a different answer, short multi-turn chats, opening files by name, and honest
+  "I can't do that" answers. The v4.2 part teaches what v3 got wrong: not saving passing plans as facts, using the facts
   it already has, opening files from indirect requests, telling what it can and can't do, and not repeating a tool call
-  when the user only says thanks. Those replies were written by Claude Haiku, checked by rules and scored by Claude
-  Sonnet; only the ones scoring 4 of 5 or more were kept. No real user data. The test cases below were kept out of the
-  training data.
-- **Training:** QLoRA, 1.5 epochs (about 390 steps), about 3 hours on an 8 GB laptop GPU. Only the assistant's tool calls
-  and replies after the last user message were trained (earlier turns of a conversation are context only, except in
-  the repeat and multi-turn examples).
+  when the user only says thanks. The new v4.4 part targets what v4.2 still got wrong: casual Turkish with slang and
+  typos (about 205), using saved facts (about 64), honesty about what it can't do (about 56) and asking the same
+  question again (about 43). The replies of both parts were written by Claude Haiku, checked by rules and scored by
+  Claude Sonnet; only the ones scoring 4 of 5 or more were kept, and examples that looked like test cases were removed.
+  No real user data. The test cases below were kept out of the training data.
+- **Training:** QLoRA, 1.5 epochs (459 steps), from scratch with the same recipe as v4.2, about 3 hours on an 8 GB
+  laptop GPU. Only the assistant's tool calls and replies after the last user message were trained (earlier turns of a
+  conversation are context only, except in the repeat and multi-turn examples).
 
 ## How it scores
-**v4.2** against v3 on the same 158 cases, each model measured twice (three runs per case each time) with the app's
-settings. The cases were made stricter since the v3 numbers below, so v3 scores 83% here, not 82%:
+**v4.4** against v4.2 on the same 158 cases, each model measured twice (three runs per case each time) with the app's
+settings. Pass rate, average of the two measurements:
+
+| | v4.2 | v4.4 |
+|---|---|---|
+| Overall | 89% | **91%** |
+| Reminders | 97% | 90% (weaker) |
+| Saving facts (`remember`) | 100% | 98% |
+| Using saved facts | 83% | 97% |
+| Actions (notes, music, apps, sites) | 96% | 99% |
+| Small talk | 92% | 97% |
+| Honesty about what it can't do | 84% | 85% |
+| Time and date | 92% | 96% |
+| General knowledge | 92% | 85% (weaker) |
+| Plain, short style | 96% | 94% |
+| Multi-turn chat | 85% | 89% |
+| Same question asked again | 67% | 86% |
+| Casual Turkish with typos and slang | 80% | 93% |
+| Opening a named file | 95% | 87% (weaker) |
+| Routing (no model) | 100% | 100% |
+
+The overall difference is small. Paired by case, it was +0.6 points in the first measurement (95% interval -3.2 to
++4.4, not significant) and +4.0 in the second (+0.4 to +7.8, significant). The gains in casual Turkish, repeated
+questions and using saved facts are large; reminders, general knowledge and opening files are 7 to 8 points worse.
+These are small samples per category and part of that is noise, but treat them as real until measured again.
+
+On **48 new cases** that were never used in training or while building the data (`eval/cases-v3.json`), three runs each:
+
+| | v4.2 | v4.4 |
+|---|---|---|
+| Overall | 81% | **89%** (+7.6 points, interval +1.4 to +14.6) |
+| Casual Turkish with typos and slang | 73% | 81% |
+| Same question asked again | 58% | 88% |
+| Honesty about what it can't do | 96% | 92% |
+| Using saved facts | 92% | 96% |
+| Multi-turn chat | 96% | 96% |
+
+Earlier, **v4.2** against v3 on the 158 cases, each measured twice (the cases were made stricter since the v3 numbers
+further down, so v3 scores 83% here, not 82%):
 
 | | v3 | v4.2 |
 |---|---|---|
@@ -78,8 +118,9 @@ The test set and the training data were made by the same people, so treat these 
 ## Known limits
 - It knows what Qwen3.5-4B knows and no more; it can get facts wrong. Don't rely on it for facts, code or long answers.
 - Asked for something it can't do (order food, live prices), it sometimes opens a web search instead of just saying so.
-- Very casual messages (slang, dropped letters, "eyw ya sağol") are its weakest spot; there are no such examples in its training data yet.
-- If you installed Pati-4B earlier you keep running that version (v1 or v3). To get v4.2: Settings > AI > Pati-4B > Remove, then Install (about 2.7 GB; the vision file and llama.cpp stay).
+- Compared with v4.2, v4.4 is weaker at setting reminders (97% to 90%), at general knowledge questions (92% to 85%) and at opening a named file (95% to 87%) on the 158 cases. The samples are small and some of it may be noise, but check a reminder's time before you rely on it.
+- Very casual messages (slang, dropped letters, "eyw ya sağol") improved a lot in v4.4 but are still its weakest area on the new cases (81%).
+- If you installed Pati-4B earlier you keep running that version (v1, v3 or v4.2). To get v4.4: Settings > AI > Pati-4B > Remove, then Install (about 2.7 GB; the vision file and llama.cpp stay).
 - It may still write Markdown or LaTeX now and then; Pati's balloon strips most of it.
 
 ## License

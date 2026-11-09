@@ -56,6 +56,22 @@
       ],
       "fps": 5
     },
+    "climb": {
+      "frames": [
+        "climb1.png",
+        "climb2.png",
+        "climb3.png",
+        "climb4.png"
+      ],
+      "fps": 5
+    },
+    "sit": {
+      "frames": [
+        "sit1.png",
+        "sit2.png"
+      ],
+      "fps": 1
+    },
     "guitar": {
       "frames": [
         "guitar1.png",

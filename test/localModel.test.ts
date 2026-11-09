@@ -108,7 +108,7 @@ test('a network failure keeps the .part file; aborting reports "aborted"', async
 
 test('an older complete model set keeps working, and is dropped once the current set is installed', async () => {
   const old = crypto.randomBytes(120_000)
-  const withLegacy: Manifest = { ...manifest, legacy: [entry('old.gguf', old), manifest.model[1]] }
+  const withLegacy: Manifest = { ...manifest, legacy: [[entry('old.gguf', old), manifest.model[1]]] }
   const dir = tmp()
   fs.mkdirSync(path.join(dir, 'llama'))
   fs.writeFileSync(path.join(dir, 'llama', 'llama-server.exe'), 'fake exe')

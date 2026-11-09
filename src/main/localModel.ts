@@ -24,14 +24,15 @@ export interface Manifest {
   zip: ModelFile
   /** The model's first shard (what `-m` gets), the second shard, and the `mmproj*` vision file. */
   model: ModelFile[]
-  /** An earlier model set that is still good to run: kept working, never downloaded again, dropped once `model` is complete. */
-  legacy?: ModelFile[]
+  /** Earlier model sets (newest first) that are still good to run: kept working, never downloaded again, dropped once `model` is complete. */
+  legacy?: ModelFile[][]
 }
 
 const RELEASE_V1 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v1/'
 const RELEASE_V3 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v3/'
 const RELEASE_V42 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v42/'
-const file = (name: string, size: number, sha256: string, url = RELEASE_V42 + name): ModelFile => ({ name, url, size, sha256 })
+const RELEASE_V44 = 'https://github.com/tungarix/pati/releases/download/pati-4b-v44/'
+const file = (name: string, size: number, sha256: string, url = RELEASE_V44 + name): ModelFile => ({ name, url, size, sha256 })
 const MMPROJ = file('mmproj-4B-F16.gguf', 672423616, 'cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864', RELEASE_V1 + 'mmproj-4B-F16.gguf')
 
 export const MANIFEST: Manifest = {
@@ -42,15 +43,22 @@ export const MANIFEST: Manifest = {
     'https://github.com/ggml-org/llama.cpp/releases/download/b11799/llama-b11799-bin-win-vulkan-x64.zip',
   ),
   model: [
-    file('Pati-4B-v42-Q4_K_M-00001-of-00002.gguf', 1901243232, '1621020f400eab314d5dcfbe5cc25f77d49c1b54a3fe4a8b3a4003e40bf2784f'),
-    file('Pati-4B-v42-Q4_K_M-00002-of-00002.gguf', 807561120, '2fad4ea90da2e24251d350249ee3956bf78806c8c99cafb7b861ced6d042ff9e'),
+    file('Pati-4B-v44-Q4_K_M-00001-of-00002.gguf', 1901243232, '785c222e503dcccc1df53fd58d12fed441a67cc41b0b1e6d36475d774ec17976'),
+    file('Pati-4B-v44-Q4_K_M-00002-of-00002.gguf', 807561120, '73ad5c59ac21674fb2edcc8fe503837de922bd0f72c40aea1c6817f2830a4e9c'),
     MMPROJ,
   ],
-  // Installs from Pati 0.5.x hold v3; they keep running it until the user reinstalls (Settings > AI > Pati-4B > Remove, Install).
+  // Installs from earlier Pati versions hold v4.2 or v3; they keep running it until the user reinstalls (Settings > AI > Pati-4B > Remove, Install).
   legacy: [
-    file('Pati-4B-v3-Q4_K_M-00001-of-00002.gguf', 1901243232, '832250202dca759d726827a233f27c34e2ddbfbbf3cc6c3b61fa6ea152087e0c', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00001-of-00002.gguf'),
-    file('Pati-4B-v3-Q4_K_M-00002-of-00002.gguf', 807561120, '0eb187efe46f60acd71115fa39d0937b7a7f271834b7bd9eb02d47746e7b2534', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00002-of-00002.gguf'),
-    MMPROJ,
+    [
+      file('Pati-4B-v42-Q4_K_M-00001-of-00002.gguf', 1901243232, '1621020f400eab314d5dcfbe5cc25f77d49c1b54a3fe4a8b3a4003e40bf2784f', RELEASE_V42 + 'Pati-4B-v42-Q4_K_M-00001-of-00002.gguf'),
+      file('Pati-4B-v42-Q4_K_M-00002-of-00002.gguf', 807561120, '2fad4ea90da2e24251d350249ee3956bf78806c8c99cafb7b861ced6d042ff9e', RELEASE_V42 + 'Pati-4B-v42-Q4_K_M-00002-of-00002.gguf'),
+      MMPROJ,
+    ],
+    [
+      file('Pati-4B-v3-Q4_K_M-00001-of-00002.gguf', 1901243232, '832250202dca759d726827a233f27c34e2ddbfbbf3cc6c3b61fa6ea152087e0c', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00001-of-00002.gguf'),
+      file('Pati-4B-v3-Q4_K_M-00002-of-00002.gguf', 807561120, '0eb187efe46f60acd71115fa39d0937b7a7f271834b7bd9eb02d47746e7b2534', RELEASE_V3 + 'Pati-4B-v3-Q4_K_M-00002-of-00002.gguf'),
+      MMPROJ,
+    ],
   ],
 }
 
@@ -156,7 +164,7 @@ export class LocalModel {
   /** The model set to run: the current one when complete, else a complete older one, else none. */
   private active(): ModelFile[] | null {
     const { model, legacy } = this.manifest
-    return this.complete(model) ? model : legacy && this.complete(legacy) ? legacy : null
+    return this.complete(model) ? model : (legacy?.find(set => this.complete(set)) ?? null)
   }
 
   status(): Status {
@@ -195,7 +203,7 @@ export class LocalModel {
     }
     // The current set is complete: the older one's shards (same names never overlap, mmproj is shared) are dead weight.
     const keep = new Set(this.manifest.model.map(f => f.name))
-    for (const f of this.manifest.legacy ?? []) if (!keep.has(f.name)) fs.rmSync(this.p(f.name), { force: true })
+    for (const f of (this.manifest.legacy ?? []).flat()) if (!keep.has(f.name)) fs.rmSync(this.p(f.name), { force: true })
   }
 
   private async download(f: ModelFile, before: number, total: number, onProgress: (p: Progress) => void, signal: AbortSignal): Promise<void> {

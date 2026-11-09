@@ -27,6 +27,10 @@ const NAMES: Record<string, string> = {
   'v3-yeni3': 'Pati-4B v3 (2. ölçüm, yeni set)',
   'v43-yeni': 'Pati-4B v4.3 (1. ölçüm, yayınlanmadı)',
   'v43-yeni2': 'Pati-4B v4.3 (2. ölçüm, yayınlanmadı)',
+  'v44-yeni': 'Pati-4B v4.4 (1. ölçüm)',
+  'v44-yeni2': 'Pati-4B v4.4 (2. ölçüm)',
+  'v42-c3': 'Pati-4B v4.2 (eğitimde kullanılmamış set)',
+  'v44-c3': 'Pati-4B v4.4 (eğitimde kullanılmamış set)',
 }
 
 interface Check { name: string; ok: boolean; reason: string }
@@ -61,7 +65,7 @@ const lines = [
   '',
   'Türkçe ölçüm setiyle ([eval/README.md](../eval/README.md)) ölçülen her model yan yana. Bu dosya `node eval/benchmark.ts` ile kayıtlı sonuçlardan üretilir.',
   '',
-  'Okurken: iki vaka seti var ve birbirine eklenemez (80 vaka tek turlu eski set, 158 vaka çok turlu, tekrar, dosya ve gramer kontrolleri olan yeni set). **Genel** katı puandır. **Genel (küçük harf hariç)** yalnızca küçük harfle başlayan cevap yüzünden kalan vakaları geçmiş sayar; bu uygulamanın kendisinin düzeltebileceği bir biçim kuralıdır. Kategori hücrelerinde parantez içindeki sayı, aynı kural yok sayılınca çıkan orandır (yalnızca farklıysa yazılır). Sayılar vaka başına koşuların ortalamasıdır, kayıtlı dosyalardan hesaplanır.',
+  'Okurken: üç vaka seti var ve birbirine eklenemez (80 vaka tek turlu eski set, 158 vaka çok turlu, tekrar, dosya ve gramer kontrolleri olan yeni set, 48 vaka eğitimde hiç kullanılmamış en yeni set: `eval/cases-v3.json`). **Genel** katı puandır. **Genel (küçük harf hariç)** yalnızca küçük harfle başlayan cevap yüzünden kalan vakaları geçmiş sayar; bu uygulamanın kendisinin düzeltebileceği bir biçim kuralıdır. Kategori hücrelerinde parantez içindeki sayı, aynı kural yok sayılınca çıkan orandır (yalnızca farklıysa yazılır). Sayılar vaka başına koşuların ortalamasıdır, kayıtlı dosyalardan hesaplanır.',
   '',
 ]
 

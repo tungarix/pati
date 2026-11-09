@@ -2,10 +2,13 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
-## Unreleased
+## 0.5.7 (2026-11-09)
 
 ### Added
-- **Climbing and sitting.** When a character pack draws a `climb` and/or `sit` animation, the pet now sometimes climbs the screen edge it walked into (and falls when it lets go), and sits down for a while when nothing is going on. Packs without those frames behave exactly as before (the bundled Tungarix and Atlas do not have them yet). Settings > Character can turn both off; neither starts while a full screen app covers the display.
+- **Climbing and sitting.** When a character pack draws a `climb` and/or `sit` animation, the pet now sometimes climbs the screen edge it walked into (and falls when it lets go), and sits down for a while when nothing is going on. Packs without those frames behave exactly as before (the bundled Tungarix has them now, Atlas does not yet). Settings > Character can turn both off; neither starts while a full screen app covers the display.
+
+### Changed
+- **New model: Pati-4B v4.4.** It scores 91% on Pati's Turkish test set (158 cases), up from 89% for v4.2; on 48 new cases that were never used for training it scores 89% against 81%. It is much better with casual Turkish and typos (80% to 93%), when the same question is asked again (67% to 86%) and at using the facts it knows (83% to 97%). It is weaker at reminders (97% to 90%), general knowledge (92% to 85%) and opening files (95% to 87%); the samples are small, so part of that may be noise. New installs get v4.4; an installed v4.2 or v3 keeps working until you remove it and install again (Settings > AI > Pati-4B). Details in [docs/PATI-4B.md](docs/PATI-4B.md).
 
 ## 0.5.6 (2026-11-09)
 
