@@ -25,6 +25,8 @@ const NAMES: Record<string, string> = {
   'v42-yeni': 'Pati-4B v4.2 (1. ölçüm)',
   'v42-yeni2': 'Pati-4B v4.2 (2. ölçüm)',
   'v3-yeni3': 'Pati-4B v3 (2. ölçüm, yeni set)',
+  'v43-yeni': 'Pati-4B v4.3 (1. ölçüm, yayınlanmadı)',
+  'v43-yeni2': 'Pati-4B v4.3 (2. ölçüm, yayınlanmadı)',
 }
 
 interface Check { name: string; ok: boolean; reason: string }
