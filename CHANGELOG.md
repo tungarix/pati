@@ -5,7 +5,7 @@ All notable changes to Pati. Versions follow [semantic versioning](https://semve
 ## 0.5.6 (2026-11-09)
 
 ### Added
-- **Official fan packs, offered once.** On the first start after this update (or a new install) Pati asks in the balloon whether to download the official fan character packs from [tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs). Yes installs every pack that is not there yet (same SHA-256 and file-type checks as before); no is remembered and never asked again. Settings > Characters > Fan packs still works as before. Nothing is asked if you already installed a pack from the store.
+- **Official fan packs, offered once.** On the first start after this update (or a new install) Pati asks in the balloon whether to download the official fan character packs from [tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs). Yes installs every pack that is not there yet (same SHA-256 and file-type checks as before); no is remembered and never asked again. Settings > Character > Fan packs still works as before. Nothing is asked if you already installed a pack from the store.
 
 ### Changed
 - Releases are now built by GitHub Actions from a `v*` tag (a draft release is created for review); every push runs the type check and the tests.
@@ -18,8 +18,8 @@ All notable changes to Pati. Versions follow [semantic versioning](https://semve
 ## 0.5.4 (2026-11-01)
 
 ### Added
-- **Visitors and fights.** A character pack can now carry a fight scene and enemies (`scenes` and `enemies` in `character.json`, see the pack format in the README). When the pet is idle, an enemy walks in from the screen edge in its own small window, the pet fights it, and it vanishes in a puff of smoke. You can pick an enemy up with the mouse and carry it; let go and it falls. Settings > Characters > Enemies: Off, Rare (default), Sometimes, Often. Characters without enemies are unaffected.
-- **Fan packs.** Settings > Characters > Fan packs lists optional extra characters from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)). Nothing is fetched until you press "Load list"; every download is checked against a SHA-256 and unpacked only if it holds nothing but images and JSON.
+- **Visitors and fights.** A character pack can now carry a fight scene and enemies (`scenes` and `enemies` in `character.json`, see the pack format in the README). When the pet is idle, an enemy walks in from the screen edge in its own small window, the pet fights it, and it vanishes in a puff of smoke. You can pick an enemy up with the mouse and carry it; let go and it falls. Settings > Character > Enemies: Off, Rare (default), Sometimes, Often. Characters without enemies are unaffected.
+- **Fan packs.** Settings > Character > Fan packs lists optional extra characters from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)). Nothing is fetched until you press "Load list"; every download is checked against a SHA-256 and unpacked only if it holds nothing but images and JSON.
 
 ### Fixed
 - The "new version ready, restart now?" question vanished after two minutes if you were not looking. It now waits ten minutes, like the question itself does.

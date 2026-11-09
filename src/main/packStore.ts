@@ -1,6 +1,6 @@
 // Optional character packs from a separate GitHub repository: fetch the index, download a pack
 // zip, check it, unpack it into the user's characters folder. Nothing here runs until the user
-// asks (Settings > Characters > Fan packs). No Electron in here, so it can be tested on its own.
+// asks (Settings > Character > Fan packs). No Electron in here, so it can be tested on its own.
 
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'

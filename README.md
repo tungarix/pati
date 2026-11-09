@@ -19,7 +19,7 @@ Think of the old desktop assistants, rebuilt for today: no ads, no tracking, and
 
 Built-in characters: **Tungarix**, a rock wolf in sunglasses, and **Atlas**, a calm holographic assistant.
 
-Optional **fan packs** (extra characters) can be installed in **Settings > Characters > Fan packs**. Nothing is fetched until you press "Load list" or accept the one-time offer described here; the packs come from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)), not from this one. They are unofficial fan drawings. Since 0.5.6, on the first launch after an update or a fresh install, Pati asks once in a bubble whether to download the fan packs you do not have yet. Say yes and it downloads them all, checking each file's SHA-256 and type; say no and it never asks again, and the list stays under Settings. Packs you installed from the store are never offered.
+Optional **fan packs** (extra characters) can be installed in **Settings > Character > Fan packs**. Nothing is fetched until you press "Load list" or accept the one-time offer described here; the packs come from a separate repository ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)), not from this one. They are unofficial fan drawings. Since 0.5.6, on the first launch after an update or a fresh install, Pati asks once in a bubble whether to download the fan packs you do not have yet. Say yes and it downloads them all, checking each file's SHA-256 and type; say no and it never asks again, and the list stays under Settings. Packs you installed from the store are never offered.
 
 ## Install
 
