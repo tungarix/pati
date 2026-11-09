@@ -19,7 +19,7 @@ Eski masaüstü asistanlarının bugüne göre yeniden yapılmış hali: reklam 
 
 Yerleşik karakterler: güneş gözlüklü rock kurdu **Tungarix** ve sakin holografik asistan **Atlas**.
 
-İsteğe bağlı **hayran paketleri** (ek karakterler) **Ayarlar > Karakter > Hayran paketleri**nden kurulur. "Listeyi getir"e basmadan hiçbir şey indirilmez; paketler bu depodan değil, ayrı bir depodan ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)) gelir. Resmî değil, hayran çizimleridir.
+İsteğe bağlı **hayran paketleri** (ek karakterler) **Ayarlar > Karakter > Hayran paketleri**nden kurulur. "Listeyi getir"e basmadan ya da bu tek seferlik teklifi kabul etmeden hiçbir şey indirilmez; paketler bu depodan değil, ayrı bir depodan ([tungarix/pati-fan-packs](https://github.com/tungarix/pati-fan-packs)) gelir. Resmî değil, hayran çizimleridir. 0.5.6 ile birlikte, güncellemeden ya da yeni kurulumdan sonraki ilk açılışta Pati balonda bir kez sorar: kurmadığın hayran paketlerini indirsin mi? Evet dersen hepsini indirir (her dosyanın SHA-256 ve dosya türü kontrol edilir); Hayır dersen bir daha sormaz, liste Ayarlar'da hep açık kalır. Store'dan paket kurmuş olanlara hiç sorulmaz.
 
 ## Kurulum
 
