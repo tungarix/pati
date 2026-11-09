@@ -2,6 +2,11 @@
 
 All notable changes to Pati. Versions follow [semantic versioning](https://semver.org).
 
+## Unreleased
+
+### Added
+- **Climbing and sitting.** When a character pack draws a `climb` and/or `sit` animation, the pet now sometimes climbs the screen edge it walked into (and falls when it lets go), and sits down for a while when nothing is going on. Packs without those frames behave exactly as before (the bundled Tungarix and Atlas do not have them yet). Settings > Character can turn both off; neither starts while a full screen app covers the display.
+
 ## 0.5.6 (2026-11-09)
 
 ### Added

@@ -205,3 +205,18 @@ Aynı tarz için her isteme ortak ek: `cute chibi, 2.5 heads tall, digital illus
 | Lara Croft | `adventurer girl, ponytail, green tank top, short shorts, leg holsters, small backpack, two small pistols` |
 
 Aynı karakterin kareleri için her istemde aynı tohum/stil referansı (`stand` karesi) kullan; yoksa her kare farklı karakter olur.
+
+## 9. Tırmanma ve oturma kareleri (Tungarix ve Atlas)
+
+Kod hazır; kareler eklenince `character.json`'a `climb` ve `sit` yazmak yeter. Pakette yoksa o davranış hiç başlamaz (eski paketler değişmez).
+
+Ortak kural: `idle`/`stand.png` ile **aynı tuval** (Tungarix 245×306, Atlas 24×24 ve scale 5), saydam arka plan, karakter **sağa bakıyor**, ayak çizgisi `stand.png` ile aynı yükseklikte. Pencere sabit boyutlu olduğu için kare tuvalin dışına taşmamalı.
+
+| Dosya | Poz | Adet |
+|---|---|---|
+| `climb1.png`..`climb4.png` | Sağ ekran kenarına yapışık: gövde dik, eller/ayaklar sağ kenara (duvara) basıyor, yüz yukarı/sağa bakıyor. Kareler eller ve ayaklar sırayla yer değiştirerek döngü oluşturur (en az 2, en çok 4) | 2-4 |
+| `sit1.png`, `sit2.png` | Yere oturmuş: bacaklar önde ya da çapraz, eller dizde. sit2 isteğe bağlı küçük hareket (göz kırpma, baş sallama) | 1-2 |
+
+- Kod `climb` karesini sol kenarda aynalar; yazı, logo ve asimetrik simge çizme.
+- `sit`te ayak çizgisi oturan karakterin altına denk gelmeli (zemine "oturur"), `sleep.png` kadar alçak olması gerekmez.
+- `character.json`: `"climb": { "frames": ["climb1.png","climb2.png"], "fps": 5 }`, `"sit": { "frames": ["sit1.png","sit2.png"], "fps": 1 }`.

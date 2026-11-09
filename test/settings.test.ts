@@ -55,3 +55,8 @@ test('enemies default to rare, and a saved choice or a partial section merges', 
   assert.equal(loadSettings(write({ enemies: { frequency: 'often' } }), 'tr').enemies.frequency, 'often')
   assert.equal(loadSettings(write({ enemies: {} }), 'tr').enemies.frequency, 'rare')
 })
+
+test('settings from before climbing and sitting get it switched on', () => {
+  assert.equal(loadSettings(write({ language: 'tr' }), 'tr').climbSit, true)
+  assert.equal(loadSettings(write({ climbSit: false }), 'tr').climbSit, false)
+})

@@ -22,7 +22,7 @@ import { fetchIndex, PackError, PackStore } from './packStore.ts'
 import { loadSettings, saveSettings } from './settings.ts'
 import { bestMatch, findPaths, findShortcut, MEDIA_KEYS, websiteUrl, type ActionKind, type Folder, type MediaAction } from './actions.ts'
 import { FOCUS_MINUTES, FOCUS_OFF, focusStep, startFocus, type FocusState } from './focus.ts'
-import { physicsStep, pixel, throwVelocity, type Body, type Rect } from './physics.ts'
+import { MIN_HEADROOM, physicsStep, pixel, throwVelocity, type Body, type Rect } from './physics.ts'
 import { advance, canSpawn, grab, opaqueBox, release, unionBox, nextSpawnDelay, pickEnemy, planSpawn, SPEED_UNIT, startRun, ENEMY_SIZE, RETRY_MS, type Run } from './enemies.ts'
 import { createEnemyWindow, watchWindows } from './windows.ts'
 import { INITIAL_PROACTIVE, proactiveStep, type ProactiveEvent, type ProactiveState } from './proactive.ts'
@@ -289,6 +289,10 @@ let stopWindowWatch: (() => void) | null = null
 let shown = { airborne: false, tilt: 0, stretch: 0 }
 /** Walking: px still to go (the renderer asks 10 times a second), the speed, and the sub-pixel carry. */
 const walk = { pending: 0, rate: 0, carry: 0 }
+/** Climbing the screen edge (side: which one); gravity is off until the pet lets go. */
+let climbing: { side: 1 | -1 } | null = null
+/** False while a full screen window covers the display. */
+let roaming = true
 
 /**
  * Moves the pet window, always with its exact size: on a scaled display (125%, 150%)
@@ -345,8 +349,14 @@ function startPhysics(): void {
         movePet(wx + whole, wy)
       }
     }
+    // A full screen app (a video, a game) covers the whole display: no sitting or climbing over it.
+    const display = screen.getDisplayMatching(pet.getBounds())
+    const b = display.bounds
+    const covered = windowRects.some(r => r.left <= b.x + 1 && r.top <= b.y + 1 && r.right >= b.x + b.width - 1 && r.bottom >= b.y + b.height - 1)
+    if (covered === roaming) send({ type: 'roam', ok: (roaming = !covered) })
     if (!settings.physics) return void ((body = null), showFlight(false, 0))
-    const wa = screen.getDisplayMatching(pet.getBounds()).workArea
+    if (climbing) return // glued to the wall: gravity waits until it lets go
+    const wa = display.workArea
     // Walls a little inside the edges: the window is wider than the character.
     const area = { left: wa.x + 40, top: wa.y, right: wa.x + wa.width - 40, bottom: wa.y + wa.height }
     const r = physicsStep(body ?? { ...feet(), vx: 0, vy: 0, airborne: false }, dt, windowRects, area)
@@ -1299,8 +1309,32 @@ ipcMain.on('set-interactive', (_e, isInteractive: boolean) => {
   pet?.setIgnoreMouseEvents(!isInteractive, { forward: true })
 })
 
+/** The pet grabs the screen edge (it is already there from the walk) or lets go and falls. */
+ipcMain.on('climb', (_e, on: boolean, side: 1 | -1) => {
+  if (!pet) return
+  if (on) {
+    climbing = { side }
+    body = null
+    walk.pending = 0
+    return
+  }
+  if (!climbing) return
+  climbing = null
+  if (!dragTimer && settings.physics) body = { ...feet(), vx: 0, vy: 0, airborne: true }
+})
+
+ipcMain.handle('climb-by', (_e, dy: number) => {
+  if (!pet || !climbing || dragTimer) return
+  const wa = screen.getDisplayMatching(pet.getBounds()).workArea
+  const [, y] = pet.getPosition()
+  // Same wall as walking stops at; the feet stay below the top headroom.
+  const x = climbing.side > 0 ? wa.x + wa.width - (petW() * 3) / 4 : wa.x - petW() / 4
+  movePet(x, Math.max(wa.y + MIN_HEADROOM - petH(), y - dy))
+})
+
 ipcMain.on('drag-start', (_e, offset: { x: number; y: number }) => {
   if (!pet || dragTimer) return
+  climbing = null
   body = null
   dragSamples = []
   // Follow the cursor from here: pointer events stop once it leaves the small window.
@@ -1407,11 +1441,14 @@ async function changePack(id: string, install: boolean): Promise<void> {
   }
 }
 
-/** Asks once whether to fetch every official fan pack; the flag is set first, so a no or a failure is never asked again. */
+/** Asks once whether to fetch every official fan pack; a no or a failure is never asked again, an unanswered question (timeout) is. */
 async function offerPacks(): Promise<void> {
   const lang = settings.language
+  const asked = Date.now()
+  const yes = await askYesNo(t(lang, 'packs.offer'))
+  if (!yes && Date.now() - asked >= 590_000) return // nobody was there: ask again next start
   applySettings({ ...settings, packs: { offered: true } })
-  if (!(await askYesNo(t(lang, 'packs.offer')))) return send({ type: 'ai', event: 'done', text: t(lang, 'packs.declined') })
+  if (!yes) return send({ type: 'ai', event: 'done', text: t(lang, 'packs.declined') })
   try {
     packIndex = await fetchIndex()
     packs.loaded = true
@@ -1478,7 +1515,7 @@ if (!app.requestSingleInstanceLock()) {
     }, 10_000)
     // Then the one-time fan pack offer, once the model offer (or its download) is out of the way.
     setTimeout(async () => {
-      while (offering || installing) await new Promise(r => setTimeout(r, 10_000))
+      while (offering || installing || focus.phase === 'focus') await new Promise(r => setTimeout(r, 10_000))
       // Someone who already installed a pack from the store knows where it is: no question.
       if (!settings.packs.offered && Object.keys(packStore.record()).length === 0) void offerPacks()
     }, 30_000)

@@ -149,7 +149,7 @@ characters/
 }
 ```
 
-- Zorunlu olan yalnızca `animations.idle` (ve bir ad). `fall` havadayken (yoksa `drag`), `dust` yere indikten sonra bir kez, `guitar` boşta dururken arada bir oynar. `walk`'a `stride` (bir adımın kare pikseli cinsinden uzunluğu) verirsen kareler yürünen mesafeyle ilerler, ayaklar kaymaz. Eksik animasyonun yerine `idle` oynar, eksik repliklerin yerine varsayılanlar gelir.
+- Zorunlu olan yalnızca `animations.idle` (ve bir ad). `fall` havadayken (yoksa `drag`), `dust` yere indikten sonra bir kez, `guitar` boşta dururken arada bir oynar. `climb` (2-4 kare, sağ ekran kenarı için çizilir, `idle` ile aynı tuval, karakter duvara tutunmuş; sol kenarda aynalanır) ve `sit` (1-2 kare, oturan poz, aynı tuval ve ayak çizgisi) iki davranışı açar: `climb`i olmayan paket tırmanmaz, `sit`i olmayan oturmaz (Ayarlar > Karakter'den ikisi kapatılabilir). `walk`'a `stride` (bir adımın kare pikseli cinsinden uzunluğu) verirsen kareler yürünen mesafeyle ilerler, ayaklar kaymaz. Eksik animasyonun yerine `idle` oynar, eksik repliklerin yerine varsayılanlar gelir.
 - `lines`, `language`'deki tek bir set ya da dil başına ayrı setler olabilir: `{ "tr": {...}, "en": {...} }`. `persona` da aynı şekilde çalışır; sohbette karaktere sesini veren sistem talimatıdır.
 - `scale`, piksel sanatını keskin kenarlarla büyütür; çizim tarzı görseller için `1` bırak. Karakter ~150 pikseli geçmesin.
 - `accent`, modern balonun rengidir.

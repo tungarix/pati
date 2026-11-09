@@ -1,7 +1,11 @@
 // Shapes shared by the main process, the preload bridge and the windows.
 
-/** Optional like the rest: `fall` (in the air; else `drag`), `dust` (after a landing), `guitar` (now and then when idle). */
-export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fall' | 'dust' | 'guitar' | 'fight' | 'win'
+/**
+ * Optional like the rest: `fall` (in the air; else `drag`), `dust` (after a landing), `guitar` (now and then when idle),
+ * `climb` (up the screen edge, drawn for the right edge) and `sit` (idle pets sit down now and then). A pack without
+ * `climb` or `sit` never does that behaviour.
+ */
+export type AnimationName = 'idle' | 'walk' | 'sleep' | 'drag' | 'talk' | 'fall' | 'dust' | 'guitar' | 'fight' | 'win' | 'climb' | 'sit'
 
 export interface Animation {
   frames: string[]
@@ -187,6 +191,8 @@ export interface Settings {
   wander: boolean
   /** Shimeji physics: falls onto the taskbar and window edges, can be thrown. */
   physics: boolean
+  /** Climbs the screen edge and sits down now and then (needs a pack that draws `climb` / `sit`). */
+  climbSit: boolean
   openAtLogin: boolean
   reminders: Reminder[]
   position: { x: number; y: number } | null
@@ -211,6 +217,8 @@ export type PetCommand =
   /** How the body moves: in the air (no walking, falling pose), the lean to swing towards (degrees), stretch of a fast fall, speed it just hit a floor with. */
   /** An enemy reached the pet (`arrived`) or is gone (`dead`); the pet plays its fight and win scenes. */
   | { type: 'enemy'; event: 'arrived' | 'dead'; /** Which side the enemy comes from: 1 right, -1 left. */ side?: 1 | -1 }
+  /** False while a full screen app covers the display: no sitting or climbing then. */
+  | { type: 'roam'; ok: boolean }
   | { type: 'physics'; airborne: boolean; tilt: number; stretch: number; impact: number }
 
 /** What the enemy window draws now: a list of frames, looped or played once (the last stays). */

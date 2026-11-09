@@ -151,7 +151,7 @@ characters/
 }
 ```
 
-- Only `animations.idle` (and a name) is required. `fall` plays in the air (else `drag`), `dust` once after a landing, `guitar` now and then when idle. Give `walk` a `stride` (one step's length in frame pixels) and its frames follow the distance walked, so the feet do not slide. A missing animation falls back to `idle`; missing lines fall back to defaults.
+- Only `animations.idle` (and a name) is required. `fall` plays in the air (else `drag`), `dust` once after a landing, `guitar` now and then when idle. `climb` (2-4 frames, drawn for the right screen edge, same canvas as `idle`, the character clinging to the wall; mirrored for the left edge) and `sit` (1-2 frames, a sitting pose, same canvas and feet line) switch two behaviours on: a pack without `climb` never climbs, a pack without `sit` never sits (Settings > Character can turn both off). Give `walk` a `stride` (one step's length in frame pixels) and its frames follow the distance walked, so the feet do not slide. A missing animation falls back to `idle`; missing lines fall back to defaults.
 - `lines` can be one set in `language`, or one per language: `{ "tr": {...}, "en": {...} }`. `persona` works the same way; it is the system prompt that gives the character its voice in chat.
 - `scale` enlarges pixel art with crisp edges; leave it at `1` for drawn images. Keep the character under about 150 px wide.
 - `accent` colours the modern balloon.

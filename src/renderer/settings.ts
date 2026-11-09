@@ -484,6 +484,7 @@ function apply(state: State) {
   renderVoice(state.voice)
   renderEnemies()
   bindCheck('wander', () => settings.wander, v => (settings.wander = v))
+  bindCheck('climb-sit', () => settings.climbSit, v => (settings.climbSit = v))
   bindCheck('physics', () => settings.physics, v => (settings.physics = v))
   bindCheck('tips-enabled', () => settings.tips.enabled, v => (settings.tips.enabled = v))
   bindCheck('pro-enabled', () => settings.proactive.enabled, v => (settings.proactive.enabled = v))

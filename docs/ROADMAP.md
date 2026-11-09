@@ -81,7 +81,7 @@ JARVIS hissini tamamlayan adım.
 - Sonra: sürükleyerek bölge seçme, panodaki görsele bakma.
 
 ### v0.7: Shimeji fiziği
-✅ 1-3 ve 6'nın ayarı bitti (`feat/shimeji`): pencere bilgisi `koffi` yerine küçük bir PowerShell yardımcısıyla (derleme ya da yeni bağımlılık yok), `physics.ts` testli, fırlatma. Kalanlar: tırmanma/oturma, yeni animasyonlar, tam ekranda gizlenme.
+✅ 1-3 ve 6'nın ayarı bitti (`feat/shimeji`): pencere bilgisi `koffi` yerine küçük bir PowerShell yardımcısıyla (derleme ya da yeni bağımlılık yok), `physics.ts` testli, fırlatma. Tırmanma ve oturma temel hali bitti (0.5.7, `behavior.ts` testli; pakette `climb`/`sit` karesi yoksa o davranış kapalı, kare şartnamesi `docs/CIZIM-PLANLARI.md` bölüm 9). Kalanlar: bu karelerin çizimi (Tungarix, Atlas), diğer yeni animasyonlar, tam ekranda gizlenme (şimdilik yalnız tam ekranda oturma/tırmanma başlamıyor).
 
 En büyük iş; ayrı dalda, sırayla:
 1. Pencere bilgisi: `koffi` ile `user32` (`EnumWindows`, `GetWindowRect`, `IsWindowVisible`, gölgesiz kenar

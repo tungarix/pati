@@ -48,6 +48,10 @@ let userIdleSeconds = 0
 let behavior: BehaviorState = INITIAL
 let hitEdge = false
 let isDragging = false
+/** Hugging the screen edge (the main process holds gravity while it does). */
+let isClimbing = false
+/** False while a full screen app covers the display: no sitting or climbing. */
+let roamOk = true
 /** Falling or flying after a throw (main process physics). */
 let isAirborne = false
 /** Dusting itself off after a landing, until then. */
@@ -437,7 +441,7 @@ function animateMotion(now: number) {
   sprite.style.rotate = `${(motion.lean.value + rock).toFixed(2)}deg`
   sprite.style.scale = `${(1 - s * 0.7).toFixed(4)} ${(1 + s).toFixed(4)}`
   sprite.style.translate = `0 ${(bob * px).toFixed(2)}px`
-  const grounded = !isAirborne && !isDragging
+  const grounded = !isAirborne && !isDragging && anim !== 'climb'
   shadow.style.opacity = grounded ? '1' : '0'
   shadow.style.scale = `${(1 - bob / 20 + Math.max(0, -s)).toFixed(3)} 1`
 }
@@ -668,6 +672,10 @@ async function tickOnce() {
     isSpeaking,
     wander: settings.wander && focus.phase !== 'focus' && now >= dustUntil,
     hitEdge,
+    // A pack that does not draw the pose never does the behaviour, so packs without frames look as before.
+    canSit: settings.climbSit && roamOk && !!character.animations.sit && focus.phase !== 'focus' && now >= dustUntil,
+    canClimb: settings.climbSit && settings.physics && roamOk && !!character.animations.climb && focus.phase !== 'focus' && now >= dustUntil,
+    climbRange: (screen.availHeight * 0.6) / settings.size,
     enemy: enemyNews,
     sceneOver: now >= winUntil,
     random: Math.random,
@@ -683,6 +691,9 @@ async function tickOnce() {
   if (busy !== reportedBusy) api.petBusy((reportedBusy = busy))
   if (r.events.includes('woke-up') && !isQuiet()) say(pick(lines().wake), [], 4)
   if (r.events.includes('walk-ended')) api.walkEnded()
+  const climbingNow = behavior.mode === 'climb'
+  if (climbingNow !== isClimbing) api.climb((isClimbing = climbingNow), behavior.facing)
+  if (r.climbBy) await api.climbBy(r.climbBy * settings.size)
 
   if (behavior.mode === 'idle' && balloon.hidden && settings.tips.enabled && now > nextTipAt && !isQuiet()) {
     scheduleTip()
@@ -755,6 +766,7 @@ api.onCommand((cmd: PetCommand) => {
     enemyNews = cmd.event
     if (cmd.side) behavior = { ...behavior, facing: cmd.side } // turn to face it
   }
+  else if (cmd.type === 'roam') roamOk = cmd.ok
   else if (cmd.type === 'physics') {
     isAirborne = cmd.airborne
     motion.lean.target = cmd.tilt

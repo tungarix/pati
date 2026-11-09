@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sleepAfterSeconds: 120,
   wander: true,
   physics: true,
+  climbSit: true,
   openAtLogin: false,
   reminders: [
     { id: 'su', text: 'Su içmeyi unutma!', enabled: true, kind: 'interval', minutes: 60 },
